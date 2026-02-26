@@ -28,7 +28,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 	sqlDB.SetMaxIdleConns(10)
 
 	// 自动迁移表结构
-	if err := db.AutoMigrate(&model.Trader{}, &model.TraderPerformance{}); err != nil {
+	if err := db.AutoMigrate(&model.Trader{}, &model.TraderPerformance{}, &model.TraderAccountValue{}, &model.TraderPnlHistory{}); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
 
