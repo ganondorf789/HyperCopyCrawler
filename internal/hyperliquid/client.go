@@ -2,16 +2,20 @@ package hyperliquid
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 const (
 	leaderboardURL = "https://stats-data.hyperliquid.xyz/Mainnet/leaderboard"
 	infoURL        = "https://api.hyperliquid.xyz/info"
+
+	fillsLimit = 2000 // API 单次返回上限
 )
 
 // Client Hyperliquid API 客户端
@@ -19,10 +23,29 @@ type Client struct {
 	http *http.Client
 }
 
+// NewClient 创建无代理客户端
 func NewClient() *Client {
 	return &Client{
 		http: &http.Client{Timeout: 60 * time.Second},
 	}
+}
+
+// NewClientWithProxy 创建带代理的客户端
+func NewClientWithProxy(proxyURL string) (*Client, error) {
+	u, err := url.Parse(proxyURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse proxy url: %w", err)
+	}
+	transport := &http.Transport{
+		Proxy:           http.ProxyURL(u),
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+	}
+	return &Client{
+		http: &http.Client{
+			Timeout:   60 * time.Second,
+			Transport: transport,
+		},
+	}, nil
 }
 
 // --- Leaderboard ---
@@ -87,8 +110,6 @@ type PortfolioResponse struct {
 	PnlHistory          []TimeSeriesEntry `json:"pnlHistory"`
 }
 
-// TimeSeriesEntry 是 {"time": "...", "value": "..."} 或类似结构
-// 实际返回的是按 window 分组的数据
 type TimeSeriesEntry = json.RawMessage
 
 func (c *Client) FetchPortfolio(address string) (*PortfolioResponse, error) {
@@ -113,4 +134,71 @@ func (c *Client) FetchPortfolio(address string) (*PortfolioResponse, error) {
 		return nil, fmt.Errorf("unmarshal portfolio for %s: %w", address, err)
 	}
 	return &result, nil
+}
+
+// --- UserFillsByTime ---
+
+type FillsByTimeRequest struct {
+	Type      string `json:"type"`
+	User      string `json:"user"`
+	StartTime int64  `json:"startTime"`
+	EndTime   int64  `json:"endTime"`
+}
+
+// Fill API 返回的成交记录
+type Fill struct {
+	Coin          string `json:"coin"`
+	Px            string `json:"px"`
+	Sz            string `json:"sz"`
+	Side          string `json:"side"`
+	Time          int64  `json:"time"`
+	StartPosition string `json:"startPosition"`
+	Dir           string `json:"dir"`
+	ClosedPnl     string `json:"closedPnl"`
+	Hash          string `json:"hash"`
+	Oid           int64  `json:"oid"`
+	Crossed       bool   `json:"crossed"`
+	Fee           string `json:"fee"`
+	Tid           int64  `json:"tid"`
+	Cloid         string `json:"cloid"`
+	FeeToken      string `json:"feeToken"`
+}
+
+// FetchUserFillsByTime 按时间范围获取用户成交记录
+func (c *Client) FetchUserFillsByTime(address string, startTimeMs, endTimeMs int64) ([]Fill, error) {
+	payload, _ := json.Marshal(FillsByTimeRequest{
+		Type:      "userFillsByTime",
+		User:      address,
+		StartTime: startTimeMs,
+		EndTime:   endTimeMs,
+	})
+
+	resp, err := c.http.Post(infoURL, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("fetch fills for %s: %w", address, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 429 {
+		return nil, fmt.Errorf("rate limited (429)")
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read fills body: %w", err)
+	}
+
+	var fills []Fill
+	if err := json.Unmarshal(body, &fills); err != nil {
+		return nil, fmt.Errorf("unmarshal fills for %s: %w", address, err)
+	}
+	return fills, nil
+}
+
+// IsAtLimit 判断返回结果是否达到 API 上限
+func IsAtLimit(fills []Fill) bool {
+	return len(fills) >= fillsLimit
 }
