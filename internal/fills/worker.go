@@ -105,7 +105,14 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 	}
 
 	// 批量写入数据库
-	return w.saveFills(address, fills)
+	n := w.saveFills(address, fills)
+
+	// 重建 completed trades
+	if err := BuildCompletedTrades(w.db, address); err != nil {
+		log.Printf("[fills] rebuild trades error for %s: %v", address[:10], err)
+	}
+
+	return n
 }
 
 func (w *Worker) saveFills(address string, fills []hyperliquid.Fill) int {
