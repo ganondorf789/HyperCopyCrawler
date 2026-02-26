@@ -4,8 +4,8 @@ import (
 	"log"
 
 	"github.com/hypercopy/crawler/internal/config"
+	"github.com/hypercopy/crawler/internal/crawler"
 	"github.com/hypercopy/crawler/internal/database"
-	"github.com/hypercopy/crawler/internal/model"
 )
 
 func main() {
@@ -17,11 +17,6 @@ func main() {
 		log.Fatalf("postgres: %v", err)
 	}
 
-	// Auto migrate
-	if err := db.AutoMigrate(&model.CrawlTask{}); err != nil {
-		log.Fatalf("migrate: %v", err)
-	}
-
 	// Connect Redis
 	rdb, err := database.NewRedis(cfg.Redis)
 	if err != nil {
@@ -31,6 +26,17 @@ func main() {
 
 	log.Println("HyperCopyCrawler started")
 
-	// TODO: 在这里添加爬虫逻辑
-	_ = db
+	c := crawler.New(db)
+
+	// Step 1: 获取排行榜前5000交易员 -> Trader + TraderPerformance
+	if err := c.SyncLeaderboard(); err != nil {
+		log.Fatalf("sync leaderboard: %v", err)
+	}
+
+	// Step 2: 获取每个交易员的 portfolio -> TraderPnlHistory + TraderAccountValue
+	if err := c.SyncPortfolios(); err != nil {
+		log.Fatalf("sync portfolios: %v", err)
+	}
+
+	log.Println("HyperCopyCrawler finished")
 }
