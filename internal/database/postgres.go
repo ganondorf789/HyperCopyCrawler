@@ -28,8 +28,34 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 	sqlDB.SetMaxIdleConns(10)
 
 	// 自动迁移表结构
-	if err := db.AutoMigrate(&model.Trader{}, &model.TraderPerformance{}, &model.TraderAccountValue{}, &model.TraderPnlHistory{}, &model.TraderFill{}, &model.ProxyPool{}, &model.CompletedTrade{}, &model.TraderPosition{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.Trader{},
+		&model.TraderPerformance{},
+		&model.TraderAccountValue{},
+		&model.TraderPnlHistory{},
+		&model.TraderFill{},
+		&model.ProxyPool{},
+		&model.CompletedTrade{},
+		&model.TraderPosition{},
+	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
+	}
+
+	// 为各表添加数据库级别注释
+	tableComments := map[string]string{
+		"traders":              "交易员信息表",
+		"trader_performances":  "交易员绩效表（按时间窗口聚合）",
+		"trader_account_values": "交易员账户价值历史表",
+		"trader_pnl_histories": "交易员盈亏历史表",
+		"trader_fills":         "交易员成交记录表",
+		"proxy_pools":          "代理池表",
+		"completed_trades":     "已完成交易表（由 fills 聚合而来）",
+		"trader_positions":     "交易员当前持仓表",
+	}
+	for table, comment := range tableComments {
+		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {
+			zap.S().Warnf("[postgres] failed to set comment on table %s: %v", table, err)
+		}
 	}
 
 	zap.S().Info("[postgres] connected and migrated successfully")
