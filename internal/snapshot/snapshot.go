@@ -17,15 +17,13 @@ type Syncer struct {
 	db       *gorm.DB
 	proxyMgr *proxy.Manager
 	workers  int
-	delay    time.Duration
 }
 
-func NewSyncer(db *gorm.DB, proxyMgr *proxy.Manager, workers int, delay time.Duration) *Syncer {
+func NewSyncer(db *gorm.DB, proxyMgr *proxy.Manager, workers int) *Syncer {
 	return &Syncer{
 		db:       db,
 		proxyMgr: proxyMgr,
 		workers:  workers,
-		delay:    delay,
 	}
 }
 
@@ -83,7 +81,6 @@ func (s *Syncer) worker(workerIdx int, addrCh <-chan string, done, errs *atomic.
 		if cur%100 == 0 || cur == total {
 			log.Printf("[snapshot] progress: %d/%d", cur, total)
 		}
-		time.Sleep(s.delay)
 	}
 }
 

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"time"
 
 	"github.com/hypercopy/crawler/internal/config"
 	"github.com/hypercopy/crawler/internal/database"
@@ -13,7 +12,6 @@ import (
 
 func main() {
 	rate := flag.Int("rate", 5, "并发 worker 数量")
-	delay := flag.Duration("delay", 500*time.Millisecond, "每个 worker 请求间隔")
 	flag.Parse()
 
 	cfg := config.Load()
@@ -27,8 +25,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("proxy manager: %v", err)
 	}
-	log.Printf("[main] %d proxies loaded, %d workers, delay %v", proxyMgr.Count(), *rate, *delay)
+	log.Printf("[main] %d proxies loaded, %d workers", proxyMgr.Count(), *rate)
 
-	s := snapshot.NewSyncer(db, proxyMgr, *rate, *delay)
+	s := snapshot.NewSyncer(db, proxyMgr, *rate)
 	s.Run()
 }
