@@ -168,7 +168,7 @@ func (c *Crawler) syncOnePortfolio(address string) error {
 }
 
 // monthVlm 提取30D交易量用于排序
-func monthVlm(row hyperliquid.LeaderboardRow) float64 {
+func monthVlm(row model.LeaderboardRow) float64 {
 	for _, wp := range row.WindowPerformances {
 		window, data, err := wp.Parse()
 		if err != nil {

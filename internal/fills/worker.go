@@ -115,7 +115,7 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 	return n
 }
 
-func (w *Worker) saveFills(address string, fills []hyperliquid.Fill) int {
+func (w *Worker) saveFills(address string, fills []model.Fill) int {
 	records := make([]model.TraderFill, 0, len(fills))
 	for _, f := range fills {
 		records = append(records, model.TraderFill{

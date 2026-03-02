@@ -5,13 +5,14 @@ import (
 	"time"
 
 	"github.com/hypercopy/crawler/internal/hyperliquid"
+	"github.com/hypercopy/crawler/internal/model"
 )
 
 // 5层自适应细分策略（从后往前）：月 → 周 → 天 → 小时 → 10分钟
 // 当单次请求返回 >=2000 条时，自动向下一层细分
 
 // FetchAllFills 获取交易员从 startMs 到 endMs 的所有成交记录（自适应5层细分）
-func FetchAllFills(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []hyperliquid.Fill {
+func FetchAllFills(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []model.Fill {
 	// 先探测全量
 	fills, err := client.FetchUserFillsByTime(address, startMs, endMs)
 	if err != nil {
@@ -32,8 +33,8 @@ func FetchAllFills(client *hyperliquid.Client, address string, startMs, endMs in
 }
 
 // --- Level 1: 按月 ---
-func fetchByMonth(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []hyperliquid.Fill {
-	var all []hyperliquid.Fill
+func fetchByMonth(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []model.Fill {
+	var all []model.Fill
 	cur := time.UnixMilli(startMs).UTC()
 	end := time.UnixMilli(endMs).UTC()
 
@@ -67,8 +68,8 @@ func fetchByMonth(client *hyperliquid.Client, address string, startMs, endMs int
 }
 
 // --- Level 2: 按周 ---
-func fetchByWeek(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []hyperliquid.Fill {
-	var all []hyperliquid.Fill
+func fetchByWeek(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []model.Fill {
+	var all []model.Fill
 	cur := time.UnixMilli(startMs).UTC()
 	end := time.UnixMilli(endMs).UTC()
 
@@ -102,8 +103,8 @@ func fetchByWeek(client *hyperliquid.Client, address string, startMs, endMs int6
 }
 
 // --- Level 3: 按天 ---
-func fetchByDay(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []hyperliquid.Fill {
-	var all []hyperliquid.Fill
+func fetchByDay(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []model.Fill {
+	var all []model.Fill
 	cur := time.UnixMilli(startMs).UTC()
 	end := time.UnixMilli(endMs).UTC()
 
@@ -137,8 +138,8 @@ func fetchByDay(client *hyperliquid.Client, address string, startMs, endMs int64
 }
 
 // --- Level 4: 按小时 ---
-func fetchByHour(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []hyperliquid.Fill {
-	var all []hyperliquid.Fill
+func fetchByHour(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []model.Fill {
+	var all []model.Fill
 	cur := time.UnixMilli(startMs).UTC()
 	end := time.UnixMilli(endMs).UTC()
 
@@ -172,8 +173,8 @@ func fetchByHour(client *hyperliquid.Client, address string, startMs, endMs int6
 }
 
 // --- Level 5: 按10分钟 ---
-func fetchBy10Min(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []hyperliquid.Fill {
-	var all []hyperliquid.Fill
+func fetchBy10Min(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []model.Fill {
+	var all []model.Fill
 	cur := time.UnixMilli(startMs).UTC()
 	end := time.UnixMilli(endMs).UTC()
 
