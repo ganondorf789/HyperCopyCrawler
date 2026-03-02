@@ -8,6 +8,7 @@ import (
 	"github.com/hypercopy/crawler/internal/config"
 	"github.com/hypercopy/crawler/internal/database"
 	"github.com/hypercopy/crawler/internal/fills"
+	"github.com/hypercopy/crawler/internal/logger"
 	"github.com/hypercopy/crawler/internal/proxy"
 )
 
@@ -15,6 +16,12 @@ func main() {
 	workers := flag.Int("workers", 10, "并发 worker 数量")
 	delay := flag.Duration("delay", 200*time.Millisecond, "每次 API 请求间隔")
 	flag.Parse()
+
+	_, cleanup, err := logger.Init("fills")
+	if err != nil {
+		log.Fatalf("init logger: %v", err)
+	}
+	defer cleanup()
 
 	cfg := config.Load()
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/hypercopy/crawler/internal/config"
 	"github.com/hypercopy/crawler/internal/database"
+	"github.com/hypercopy/crawler/internal/logger"
 	"github.com/hypercopy/crawler/internal/proxy"
 	"github.com/hypercopy/crawler/internal/snapshot"
 )
@@ -13,6 +14,12 @@ import (
 func main() {
 	rate := flag.Int("rate", 5, "并发 worker 数量")
 	flag.Parse()
+
+	_, cleanup, err := logger.Init("snapshot")
+	if err != nil {
+		log.Fatalf("init logger: %v", err)
+	}
+	defer cleanup()
 
 	cfg := config.Load()
 

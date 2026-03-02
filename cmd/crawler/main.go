@@ -6,9 +6,16 @@ import (
 	"github.com/hypercopy/crawler/internal/config"
 	"github.com/hypercopy/crawler/internal/crawler"
 	"github.com/hypercopy/crawler/internal/database"
+	"github.com/hypercopy/crawler/internal/logger"
 )
 
 func main() {
+	_, cleanup, err := logger.Init("crawler")
+	if err != nil {
+		log.Fatalf("init logger: %v", err)
+	}
+	defer cleanup()
+
 	cfg := config.Load()
 
 	// Connect PostgreSQL
