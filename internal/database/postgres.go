@@ -37,20 +37,32 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.ProxyPool{},
 		&model.CompletedTrade{},
 		&model.TraderPosition{},
+		&model.User{},
+		&model.Admin{},
+		&model.CopyTrading{},
+		&model.Wallet{},
+		&model.MyTrackWallet{},
+		&model.UserPosition{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
 
 	// 为各表添加数据库级别注释
 	tableComments := map[string]string{
-		"traders":              "交易员信息表",
-		"trader_performances":  "交易员绩效表（按时间窗口聚合）",
+		"traders":               "交易员信息表",
+		"trader_performances":   "交易员绩效表（按时间窗口聚合）",
 		"trader_account_values": "交易员账户价值历史表",
-		"trader_pnl_histories": "交易员盈亏历史表",
-		"trader_fills":         "交易员成交记录表",
-		"proxy_pools":          "代理池表",
-		"completed_trades":     "已完成交易表（由 fills 聚合而来）",
-		"trader_positions":     "交易员当前持仓表",
+		"trader_pnl_histories":  "交易员盈亏历史表",
+		"trader_fills":          "交易员成交记录表",
+		"proxy_pools":           "代理池表",
+		"completed_trades":      "已完成交易表（由 fills 聚合而来）",
+		"trader_positions":      "交易员当前持仓表",
+		"user":                  "用户表",
+		"admin":                 "后台管理员表",
+		"copy_trading":          "跟单交易配置表",
+		"wallet":                "钱包表",
+		"my_track_wallet":       "跟踪钱包表",
+		"position":              "持仓表",
 	}
 	for table, comment := range tableComments {
 		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {
