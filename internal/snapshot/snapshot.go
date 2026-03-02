@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"log"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -10,6 +9,7 @@ import (
 	"github.com/hypercopy/crawler/internal/hyperliquid"
 	"github.com/hypercopy/crawler/internal/model"
 	"github.com/hypercopy/crawler/internal/proxy"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -31,13 +31,13 @@ func (s *Syncer) Run() {
 	for round := 1; ; round++ {
 		var traders []model.Trader
 		if err := s.db.Select("address").Find(&traders).Error; err != nil {
-			log.Printf("[snapshot] load traders error: %v, retrying in 10s", err)
+			zap.S().Errorf("[snapshot] load traders error: %v, retrying in 10s", err)
 			time.Sleep(10 * time.Second)
 			continue
 		}
 
 		total := int64(len(traders))
-		log.Printf("[snapshot] round %d: %d traders to sync", round, total)
+		zap.S().Infof("[snapshot] round %d: %d traders to sync", round, total)
 
 		addrCh := make(chan string, len(traders))
 		for _, t := range traders {
@@ -60,7 +60,7 @@ func (s *Syncer) Run() {
 		}
 
 		wg.Wait()
-		log.Printf("[snapshot] round %d done: %d/%d succeeded, %d errors",
+		zap.S().Infof("[snapshot] round %d done: %d/%d succeeded, %d errors",
 			round, done.Load()-errs.Load(), total, errs.Load())
 	}
 }
@@ -68,18 +68,18 @@ func (s *Syncer) Run() {
 func (s *Syncer) worker(workerIdx int, addrCh <-chan string, done, errs *atomic.Int64, total int64) {
 	client, err := s.proxyMgr.NewClientForWorker(workerIdx)
 	if err != nil {
-		log.Printf("[snapshot] worker %d: create client error: %v", workerIdx, err)
+		zap.S().Errorf("[snapshot] worker %d: create client error: %v", workerIdx, err)
 		return
 	}
 
 	for address := range addrCh {
 		if err := s.processOne(client, address); err != nil {
-			log.Printf("[snapshot] %s error: %v", address[:10], err)
+			zap.S().Warnf("[snapshot] %s error: %v", address[:10], err)
 			errs.Add(1)
 		}
 		cur := done.Add(1)
 		if cur%100 == 0 || cur == total {
-			log.Printf("[snapshot] progress: %d/%d", cur, total)
+			zap.S().Infof("[snapshot] progress: %d/%d", cur, total)
 		}
 	}
 }
@@ -210,21 +210,21 @@ func (s *Syncer) updateTraderSnap(address string, ch *model.ClearinghouseState, 
 	totalValue := new(big.Float).Add(accountValue, spotValue)
 
 	updates := map[string]interface{}{
-		"snap_eff_leverage":          effLeverage.Text('f', 10),
-		"snap_long_position_count":   longCount,
-		"snap_long_position_value":   longValue.Text('f', 10),
-		"snap_margin_usage_rate":     marginUsageRate.Text('f', 10),
-		"snap_perp_value":            ch.CrossMarginSummary.TotalNtlPos,
-		"snap_position_count":        longCount + shortCount,
-		"snap_position_value":        ch.MarginSummary.TotalNtlPos,
-		"snap_short_position_count":  shortCount,
-		"snap_short_position_value":  shortValue.Text('f', 10),
-		"snap_spot_value":            spotValue.Text('f', 10),
-		"snap_total_margin_used":     ch.MarginSummary.TotalMarginUsed,
-		"snap_total_value":           totalValue.Text('f', 10),
-		"snap_unrealized_pnl":        totalUnrealizedPnl.Text('f', 10),
-		"long_pnl":                   longPnl.Text('f', 10),
-		"short_pnl":                  shortPnl.Text('f', 10),
+		"snap_eff_leverage":         effLeverage.Text('f', 10),
+		"snap_long_position_count":  longCount,
+		"snap_long_position_value":  longValue.Text('f', 10),
+		"snap_margin_usage_rate":    marginUsageRate.Text('f', 10),
+		"snap_perp_value":           ch.CrossMarginSummary.TotalNtlPos,
+		"snap_position_count":       longCount + shortCount,
+		"snap_position_value":       ch.MarginSummary.TotalNtlPos,
+		"snap_short_position_count": shortCount,
+		"snap_short_position_value": shortValue.Text('f', 10),
+		"snap_spot_value":           spotValue.Text('f', 10),
+		"snap_total_margin_used":    ch.MarginSummary.TotalMarginUsed,
+		"snap_total_value":          totalValue.Text('f', 10),
+		"snap_unrealized_pnl":       totalUnrealizedPnl.Text('f', 10),
+		"long_pnl":                  longPnl.Text('f', 10),
+		"short_pnl":                 shortPnl.Text('f', 10),
 	}
 
 	return s.db.Model(&model.Trader{}).Where("address = ?", address).Updates(updates).Error

@@ -1,7 +1,6 @@
 package fills
 
 import (
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -9,6 +8,7 @@ import (
 	"github.com/hypercopy/crawler/internal/hyperliquid"
 	"github.com/hypercopy/crawler/internal/model"
 	"github.com/hypercopy/crawler/internal/proxy"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -39,7 +39,7 @@ func (w *Worker) Run() error {
 	if err := w.db.Select("address").Find(&traders).Error; err != nil {
 		return err
 	}
-	log.Printf("[fills] total %d traders to fetch", len(traders))
+	zap.S().Infof("[fills] total %d traders to fetch", len(traders))
 
 	// 地址 channel
 	addrCh := make(chan string, len(traders))
@@ -49,10 +49,10 @@ func (w *Worker) Run() error {
 	close(addrCh)
 
 	var (
-		wg      sync.WaitGroup
-		done    atomic.Int64
-		saved   atomic.Int64
-		total   = int64(len(traders))
+		wg    sync.WaitGroup
+		done  atomic.Int64
+		saved atomic.Int64
+		total = int64(len(traders))
 	)
 
 	for i := 0; i < w.workers; i++ {
@@ -64,14 +64,14 @@ func (w *Worker) Run() error {
 	}
 
 	wg.Wait()
-	log.Printf("[fills] all done. %d traders processed, %d fills saved", done.Load(), saved.Load())
+	zap.S().Infof("[fills] all done. %d traders processed, %d fills saved", done.Load(), saved.Load())
 	return nil
 }
 
 func (w *Worker) worker(workerIdx int, addrCh <-chan string, done, saved *atomic.Int64, total int64) {
 	client, err := w.proxyMgr.NewClientForWorker(workerIdx)
 	if err != nil {
-		log.Printf("[fills] worker %d: create client error: %v", workerIdx, err)
+		zap.S().Warnf("[fills] worker %d: create client error: %v", workerIdx, err)
 		return
 	}
 
@@ -80,7 +80,7 @@ func (w *Worker) worker(workerIdx int, addrCh <-chan string, done, saved *atomic
 		saved.Add(int64(n))
 		cur := done.Add(1)
 		if cur%50 == 0 || cur == total {
-			log.Printf("[fills] progress: %d/%d traders, %d fills saved", cur, total, saved.Load())
+			zap.S().Infof("[fills] progress: %d/%d traders, %d fills saved", cur, total, saved.Load())
 		}
 	}
 }
@@ -109,7 +109,7 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 
 	// 重建 completed trades
 	if err := BuildCompletedTrades(w.db, address); err != nil {
-		log.Printf("[fills] rebuild trades error for %s: %v", address[:10], err)
+		zap.S().Warnf("[fills] rebuild trades error for %s: %v", address[:10], err)
 	}
 
 	return n
@@ -150,7 +150,7 @@ func (w *Worker) saveFills(address string, fills []model.Fill) int {
 			Columns:   []clause.Column{{Name: "tid"}},
 			DoNothing: true,
 		}).Create(records[i:end]).Error; err != nil {
-			log.Printf("[fills] save error for %s batch %d: %v", address[:10], i/batch, err)
+			zap.S().Warnf("[fills] save error for %s batch %d: %v", address[:10], i/batch, err)
 			continue
 		}
 		saved += end - i

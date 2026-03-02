@@ -3,12 +3,12 @@ package crawler
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"sort"
 	"time"
 
 	"github.com/hypercopy/crawler/internal/hyperliquid"
 	"github.com/hypercopy/crawler/internal/model"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -27,14 +27,14 @@ func New(db *gorm.DB) *Crawler {
 
 // SyncLeaderboard 获取排行榜前5000交易员，保存地址到Trader表，windowPerformances保存到TraderPerformance表
 func (c *Crawler) SyncLeaderboard() error {
-	log.Println("[crawler] fetching leaderboard...")
+	zap.S().Info("[crawler] fetching leaderboard...")
 	resp, err := c.client.FetchLeaderboard()
 	if err != nil {
 		return fmt.Errorf("fetch leaderboard: %w", err)
 	}
 
 	rows := resp.LeaderboardRows
-	log.Printf("[crawler] got %d leaderboard rows", len(rows))
+	zap.S().Infof("[crawler] got %d leaderboard rows", len(rows))
 
 	// 按30D交易量排序，取前5000
 	sort.Slice(rows, func(i, j int) bool {
@@ -43,7 +43,7 @@ func (c *Crawler) SyncLeaderboard() error {
 	if len(rows) > 5000 {
 		rows = rows[:5000]
 	}
-	log.Printf("[crawler] top %d traders by 30D volume", len(rows))
+	zap.S().Infof("[crawler] top %d traders by 30D volume", len(rows))
 
 	// 批量保存
 	batchSize := 200
@@ -74,7 +74,7 @@ func (c *Crawler) SyncLeaderboard() error {
 			for _, wp := range row.WindowPerformances {
 				window, data, err := wp.Parse()
 				if err != nil {
-					log.Printf("[crawler] skip bad windowPerformance for %s: %v", row.EthAddress, err)
+					zap.S().Warnf("[crawler] skip bad windowPerformance for %s: %v", row.EthAddress, err)
 					continue
 				}
 				perfs = append(perfs, model.TraderPerformance{
@@ -95,10 +95,10 @@ func (c *Crawler) SyncLeaderboard() error {
 			}
 		}
 
-		log.Printf("[crawler] saved batch %d/%d (%d traders)", i/batchSize+1, (len(rows)+batchSize-1)/batchSize, len(batch))
+		zap.S().Infof("[crawler] saved batch %d/%d (%d traders)", i/batchSize+1, (len(rows)+batchSize-1)/batchSize, len(batch))
 	}
 
-	log.Println("[crawler] leaderboard sync done")
+	zap.S().Info("[crawler] leaderboard sync done")
 	return nil
 }
 
@@ -108,21 +108,21 @@ func (c *Crawler) SyncPortfolios() error {
 	if err := c.db.Select("address").Find(&traders).Error; err != nil {
 		return fmt.Errorf("load traders: %w", err)
 	}
-	log.Printf("[crawler] syncing portfolios for %d traders", len(traders))
+	zap.S().Infof("[crawler] syncing portfolios for %d traders", len(traders))
 
 	for i, trader := range traders {
 		if err := c.syncOnePortfolio(trader.Address); err != nil {
-			log.Printf("[crawler] portfolio error for %s: %v", trader.Address, err)
+			zap.S().Warnf("[crawler] portfolio error for %s: %v", trader.Address, err)
 			continue
 		}
 		if (i+1)%100 == 0 {
-			log.Printf("[crawler] portfolio progress: %d/%d", i+1, len(traders))
+			zap.S().Infof("[crawler] portfolio progress: %d/%d", i+1, len(traders))
 		}
 		// 限速：避免被封
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	log.Println("[crawler] portfolio sync done")
+	zap.S().Info("[crawler] portfolio sync done")
 	return nil
 }
 

@@ -2,13 +2,15 @@ package main
 
 import (
 	"flag"
-	"log"
+	"fmt"
+	"os"
 
 	"github.com/hypercopy/crawler/internal/config"
 	"github.com/hypercopy/crawler/internal/database"
 	"github.com/hypercopy/crawler/internal/logger"
 	"github.com/hypercopy/crawler/internal/proxy"
 	"github.com/hypercopy/crawler/internal/snapshot"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -17,7 +19,8 @@ func main() {
 
 	_, cleanup, err := logger.Init("snapshot")
 	if err != nil {
-		log.Fatalf("init logger: %v", err)
+		fmt.Fprintf(os.Stderr, "init logger: %v\n", err)
+		os.Exit(1)
 	}
 	defer cleanup()
 
@@ -25,14 +28,14 @@ func main() {
 
 	db, err := database.NewPostgres(cfg.Postgres)
 	if err != nil {
-		log.Fatalf("postgres: %v", err)
+		zap.S().Fatalf("postgres: %v", err)
 	}
 
 	proxyMgr, err := proxy.NewManager(db)
 	if err != nil {
-		log.Fatalf("proxy manager: %v", err)
+		zap.S().Fatalf("proxy manager: %v", err)
 	}
-	log.Printf("[main] %d proxies loaded, %d workers", proxyMgr.Count(), *rate)
+	zap.S().Infof("[main] %d proxies loaded, %d workers", proxyMgr.Count(), *rate)
 
 	s := snapshot.NewSyncer(db, proxyMgr, *rate)
 	s.Run()

@@ -2,12 +2,12 @@ package fills
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"sort"
 	"strconv"
 
 	"github.com/hypercopy/crawler/internal/model"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -61,7 +61,7 @@ func BuildCompletedTrades(db *gorm.DB, address string) error {
 				return fmt.Errorf("insert completed trades batch %d: %w", i/batch, err)
 			}
 		}
-		log.Printf("[trades] %s: rebuilt %d completed trades from %d fills", address[:10], len(trades), len(allFills))
+		zap.S().Infof("[trades] %s: rebuilt %d completed trades from %d fills", address[:10], len(trades), len(allFills))
 		return nil
 	})
 }

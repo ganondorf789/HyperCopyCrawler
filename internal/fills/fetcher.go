@@ -1,11 +1,11 @@
 package fills
 
 import (
-	"log"
 	"time"
 
 	"github.com/hypercopy/crawler/internal/hyperliquid"
 	"github.com/hypercopy/crawler/internal/model"
+	"go.uber.org/zap"
 )
 
 // 5层自适应细分策略（从后往前）：月 → 周 → 天 → 小时 → 10分钟
@@ -16,7 +16,7 @@ func FetchAllFills(client *hyperliquid.Client, address string, startMs, endMs in
 	// 先探测全量
 	fills, err := client.FetchUserFillsByTime(address, startMs, endMs)
 	if err != nil {
-		log.Printf("[fills] probe error for %s: %v", address[:10], err)
+		zap.S().Warnf("[fills] probe error for %s: %v", address[:10], err)
 		return nil
 	}
 	if len(fills) == 0 {
@@ -28,7 +28,7 @@ func FetchAllFills(client *hyperliquid.Client, address string, startMs, endMs in
 	}
 
 	// 达到上限，按月细分
-	log.Printf("[fills] %s: hit 2000 limit, splitting by month", address[:10])
+	zap.S().Infof("[fills] %s: hit 2000 limit, splitting by month", address[:10])
 	return fetchByMonth(client, address, startMs, endMs, delay)
 }
 
@@ -48,14 +48,14 @@ func fetchByMonth(client *hyperliquid.Client, address string, startMs, endMs int
 
 		fills, err := client.FetchUserFillsByTime(address, cMs, nMs)
 		if err != nil {
-			log.Printf("[fills] month error %s [%s]: %v", address[:10], cur.Format("2006-01"), err)
+			zap.S().Warnf("[fills] month error %s [%s]: %v", address[:10], cur.Format("2006-01"), err)
 			cur = next
 			sleep(delay)
 			continue
 		}
 
 		if hyperliquid.IsAtLimit(fills) {
-			log.Printf("[fills] %s month %s hit limit, split by week", address[:10], cur.Format("2006-01"))
+			zap.S().Infof("[fills] %s month %s hit limit, split by week", address[:10], cur.Format("2006-01"))
 			all = append(all, fetchByWeek(client, address, cMs, nMs, delay)...)
 		} else {
 			all = append(all, fills...)
@@ -83,14 +83,14 @@ func fetchByWeek(client *hyperliquid.Client, address string, startMs, endMs int6
 
 		fills, err := client.FetchUserFillsByTime(address, cMs, nMs)
 		if err != nil {
-			log.Printf("[fills] week error %s [%s]: %v", address[:10], cur.Format("01-02"), err)
+			zap.S().Warnf("[fills] week error %s [%s]: %v", address[:10], cur.Format("01-02"), err)
 			cur = next
 			sleep(delay)
 			continue
 		}
 
 		if hyperliquid.IsAtLimit(fills) {
-			log.Printf("[fills] %s week %s hit limit, split by day", address[:10], cur.Format("01-02"))
+			zap.S().Infof("[fills] %s week %s hit limit, split by day", address[:10], cur.Format("01-02"))
 			all = append(all, fetchByDay(client, address, cMs, nMs, delay)...)
 		} else {
 			all = append(all, fills...)
@@ -118,14 +118,14 @@ func fetchByDay(client *hyperliquid.Client, address string, startMs, endMs int64
 
 		fills, err := client.FetchUserFillsByTime(address, cMs, nMs)
 		if err != nil {
-			log.Printf("[fills] day error %s [%s]: %v", address[:10], cur.Format("01-02"), err)
+			zap.S().Warnf("[fills] day error %s [%s]: %v", address[:10], cur.Format("01-02"), err)
 			cur = next
 			sleep(delay)
 			continue
 		}
 
 		if hyperliquid.IsAtLimit(fills) {
-			log.Printf("[fills] %s day %s hit limit, split by hour", address[:10], cur.Format("01-02"))
+			zap.S().Infof("[fills] %s day %s hit limit, split by hour", address[:10], cur.Format("01-02"))
 			all = append(all, fetchByHour(client, address, cMs, nMs, delay)...)
 		} else {
 			all = append(all, fills...)
@@ -153,14 +153,14 @@ func fetchByHour(client *hyperliquid.Client, address string, startMs, endMs int6
 
 		fills, err := client.FetchUserFillsByTime(address, cMs, nMs)
 		if err != nil {
-			log.Printf("[fills] hour error %s [%s]: %v", address[:10], cur.Format("15:04"), err)
+			zap.S().Warnf("[fills] hour error %s [%s]: %v", address[:10], cur.Format("15:04"), err)
 			cur = next
 			sleep(delay)
 			continue
 		}
 
 		if hyperliquid.IsAtLimit(fills) {
-			log.Printf("[fills] %s hour %s hit limit, split by 10min", address[:10], cur.Format("15:04"))
+			zap.S().Infof("[fills] %s hour %s hit limit, split by 10min", address[:10], cur.Format("15:04"))
 			all = append(all, fetchBy10Min(client, address, cMs, nMs, delay)...)
 		} else {
 			all = append(all, fills...)
@@ -188,14 +188,14 @@ func fetchBy10Min(client *hyperliquid.Client, address string, startMs, endMs int
 
 		fills, err := client.FetchUserFillsByTime(address, cMs, nMs)
 		if err != nil {
-			log.Printf("[fills] 10min error %s [%s]: %v", address[:10], cur.Format("15:04"), err)
+			zap.S().Warnf("[fills] 10min error %s [%s]: %v", address[:10], cur.Format("15:04"), err)
 			cur = next
 			sleep(delay)
 			continue
 		}
 
 		if hyperliquid.IsAtLimit(fills) {
-			log.Printf("[fills] WARNING %s 10min %s still at limit (%d), cannot split further",
+			zap.S().Warnf("[fills] WARNING %s 10min %s still at limit (%d), cannot split further",
 				address[:10], cur.Format("15:04"), len(fills))
 		}
 		all = append(all, fills...)

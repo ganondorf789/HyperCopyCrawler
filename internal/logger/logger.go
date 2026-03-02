@@ -40,6 +40,7 @@ func Init(appName string) (*zap.Logger, func(), error) {
 	)
 
 	l := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	zap.ReplaceGlobals(l)
 	undoStdLog := zap.RedirectStdLog(l)
 
 	cleanup := func() {

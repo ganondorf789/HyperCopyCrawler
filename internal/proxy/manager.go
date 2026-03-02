@@ -2,12 +2,12 @@ package proxy
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 
 	"github.com/hypercopy/crawler/internal/hyperliquid"
 	"github.com/hypercopy/crawler/internal/model"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -24,7 +24,7 @@ func NewManager(db *gorm.DB) (*Manager, error) {
 	if err := db.Where("status = ?", 1).Find(&proxies).Error; err != nil {
 		return nil, fmt.Errorf("load proxies: %w", err)
 	}
-	log.Printf("[proxy] loaded %d active proxies", len(proxies))
+	zap.S().Infof("[proxy] loaded %d active proxies", len(proxies))
 	return &Manager{proxies: proxies}, nil
 }
 
