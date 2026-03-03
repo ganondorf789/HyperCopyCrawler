@@ -12,6 +12,9 @@ type CopyTrading struct {
 	FollowOnce                     int                    `gorm:"not null;default:0;comment:是否只跟一次 0:否 1:是" json:"follow_once"`
 	PositionConditions             Conditions             `gorm:"type:jsonb;default:'[]';comment:持仓筛选条件(JSON数组)" json:"position_conditions"`
 	TraderConditions               Conditions             `gorm:"type:jsonb;default:'[]';comment:交易员筛选条件(JSON数组)" json:"trader_conditions"`
+	TraderMetricPeriod             string                 `gorm:"type:varchar(16);not null;default:'7d';comment:交易员指标周期 1d/7d/30d/90d/all" json:"trader_metric_period"`
+	FollowMarginMode               int                    `gorm:"not null;default:1;comment:跟单保证金模式 1:逐仓 2:全仓" json:"follow_margin_mode"`
+	FollowSymbol                   string                 `gorm:"type:varchar(64);not null;default:'';comment:跟单币种" json:"follow_symbol"`
 	Leverage                       int                    `gorm:"not null;default:1;comment:杠杆倍数" json:"leverage"`
 	MarginMode                     int                    `gorm:"not null;default:1;comment:保证金模式 1:逐仓 2:全仓" json:"margin_mode"`
 	FollowModel                    int                    `gorm:"not null;default:1;comment:跟单模式 1:固定金额 2:固定比例" json:"follow_model"`
