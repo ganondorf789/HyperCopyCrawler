@@ -3,33 +3,37 @@ package model
 import "time"
 
 type CopyTrading struct {
-	ID                             int64     `gorm:"primaryKey;comment:主键ID" json:"id"`
-	UserID                         int64     `gorm:"not null;default:0;index:idx_copy_trading_user_id;comment:所属用户ID" json:"user_id"`
-	TargetWallet                   string    `gorm:"type:varchar(255);not null;default:'';comment:目标钱包地址" json:"target_wallet"`
-	TargetWalletPlatform           string    `gorm:"type:varchar(64);not null;default:'';comment:目标钱包平台" json:"target_wallet_platform"`
-	Remark                         string    `gorm:"type:varchar(255);not null;default:'';comment:备注" json:"remark"`
-	Leverage                       int       `gorm:"not null;default:1;comment:杠杆倍数" json:"leverage"`
-	MarginMode                     int       `gorm:"not null;default:1;comment:保证金模式 1:逐仓 2:全仓" json:"margin_mode"`
-	FollowModel                    int       `gorm:"not null;default:1;comment:跟单模式 1:固定金额 2:固定比例" json:"follow_model"`
-	FollowModelValue               string    `gorm:"type:numeric(20,8);not null;default:0;comment:跟单模式值" json:"follow_model_value"`
-	MinValue                       string    `gorm:"type:numeric(20,8);not null;default:0;comment:最小下单金额" json:"min_value"`
-	MaxValue                       string    `gorm:"type:numeric(20,8);not null;default:0;comment:最大下单金额" json:"max_value"`
-	MaxMarginUsage                 string    `gorm:"type:numeric(10,4);not null;default:0;comment:最大保证金使用率" json:"max_margin_usage"`
-	TpValue                        string    `gorm:"type:numeric(10,4);not null;default:0;comment:止盈比例" json:"tp_value"`
-	SlValue                        string    `gorm:"type:numeric(10,4);not null;default:0;comment:止损比例" json:"sl_value"`
-	OptReverseFollowOrder          int       `gorm:"not null;default:0;comment:反向跟单 0:关 1:开" json:"opt_reverse_follow_order"`
-	OptFollowupDecrease            int       `gorm:"not null;default:0;comment:跟随减仓 0:关 1:开" json:"opt_followup_decrease"`
-	OptFollowupIncrease            int       `gorm:"not null;default:0;comment:跟随加仓 0:关 1:开" json:"opt_followup_increase"`
-	OptForcedLiquidationProtection int       `gorm:"not null;default:0;comment:强平保护 0:关 1:开" json:"opt_forced_liquidation_protection"`
-	OptPositionIncreaseOpening     int       `gorm:"not null;default:0;comment:加仓开仓 0:关 1:开" json:"opt_position_increase_opening"`
-	OptSlippageProtection          int       `gorm:"not null;default:0;comment:滑点保护 0:关 1:开" json:"opt_slippage_protection"`
-	SymbolListType                 string    `gorm:"type:varchar(16);not null;default:'WHITE';comment:交易对列表类型 WHITE:白名单 BLACK:黑名单" json:"symbol_list_type"`
-	SymbolList                     string    `gorm:"type:text;not null;default:'';comment:交易对列表,逗号分隔" json:"symbol_list"`
-	MainWallet                     string    `gorm:"type:varchar(255);not null;default:'';comment:主钱包地址" json:"main_wallet"`
-	MainWalletPlatform             string    `gorm:"type:varchar(64);not null;default:'';comment:主钱包平台" json:"main_wallet_platform"`
-	Status                         int       `gorm:"not null;default:1;index:idx_copy_trading_status;comment:状态 0:停用 1:启用" json:"status"`
-	CreatedAt                      time.Time `gorm:"not null;default:now();comment:创建时间" json:"created_at"`
-	UpdatedAt                      time.Time `gorm:"not null;default:now();comment:更新时间" json:"updated_at"`
+	ID                             int64                  `gorm:"primaryKey;comment:主键ID" json:"id"`
+	UserID                         int64                  `gorm:"not null;default:0;index:idx_copy_trading_user_id;comment:所属用户ID" json:"user_id"`
+	TargetWallet                   string                 `gorm:"type:varchar(255);not null;default:'';comment:目标钱包地址" json:"target_wallet"`
+	TargetWalletPlatform           string                 `gorm:"type:varchar(64);not null;default:'';comment:目标钱包平台" json:"target_wallet_platform"`
+	Remark                         string                 `gorm:"type:varchar(255);not null;default:'';comment:备注" json:"remark"`
+	FollowType                     int                    `gorm:"not null;default:1;comment:跟单类型 1:自动跟单 2:条件跟单 3:实时跟单" json:"follow_type"`
+	FollowOnce                     int                    `gorm:"not null;default:0;comment:是否只跟一次 0:否 1:是" json:"follow_once"`
+	PositionConditions             Conditions             `gorm:"type:jsonb;default:'[]';comment:持仓筛选条件(JSON数组)" json:"position_conditions"`
+	TraderConditions               Conditions             `gorm:"type:jsonb;default:'[]';comment:交易员筛选条件(JSON数组)" json:"trader_conditions"`
+	Leverage                       int                    `gorm:"not null;default:1;comment:杠杆倍数" json:"leverage"`
+	MarginMode                     int                    `gorm:"not null;default:1;comment:保证金模式 1:逐仓 2:全仓" json:"margin_mode"`
+	FollowModel                    int                    `gorm:"not null;default:1;comment:跟单模式 1:固定金额 2:固定比例" json:"follow_model"`
+	FollowModelValue               string                 `gorm:"type:numeric(20,8);not null;default:0;comment:跟单模式值" json:"follow_model_value"`
+	MinValue                       string                 `gorm:"type:numeric(20,8);not null;default:0;comment:最小下单金额" json:"min_value"`
+	MaxValue                       string                 `gorm:"type:numeric(20,8);not null;default:0;comment:最大下单金额" json:"max_value"`
+	MaxMarginUsage                 string                 `gorm:"type:numeric(10,4);not null;default:0;comment:最大保证金使用率" json:"max_margin_usage"`
+	TpValue                        string                 `gorm:"type:numeric(10,4);not null;default:0;comment:止盈比例" json:"tp_value"`
+	SlValue                        string                 `gorm:"type:numeric(10,4);not null;default:0;comment:止损比例" json:"sl_value"`
+	OptReverseFollowOrder          int                    `gorm:"not null;default:0;comment:反向跟单 0:关 1:开" json:"opt_reverse_follow_order"`
+	OptFollowupDecrease            int                    `gorm:"not null;default:0;comment:跟随减仓 0:关 1:开" json:"opt_followup_decrease"`
+	OptFollowupIncrease            int                    `gorm:"not null;default:0;comment:跟随加仓 0:关 1:开" json:"opt_followup_increase"`
+	OptForcedLiquidationProtection int                    `gorm:"not null;default:0;comment:强平保护 0:关 1:开" json:"opt_forced_liquidation_protection"`
+	OptPositionIncreaseOpening     int                    `gorm:"not null;default:0;comment:加仓开仓 0:关 1:开" json:"opt_position_increase_opening"`
+	OptSlippageProtection          int                    `gorm:"not null;default:0;comment:滑点保护 0:关 1:开" json:"opt_slippage_protection"`
+	SymbolListType                 string                 `gorm:"type:varchar(16);not null;default:'WHITE';comment:交易对列表类型 WHITE:白名单 BLACK:黑名单" json:"symbol_list_type"`
+	SymbolList                     string                 `gorm:"type:text;not null;default:'';comment:交易对列表,逗号分隔" json:"symbol_list"`
+	MainWallet                     string                 `gorm:"type:varchar(255);not null;default:'';comment:主钱包地址" json:"main_wallet"`
+	MainWalletPlatform             string                 `gorm:"type:varchar(64);not null;default:'';comment:主钱包平台" json:"main_wallet_platform"`
+	Status                         int                    `gorm:"not null;default:1;index:idx_copy_trading_status;comment:状态 0:停用 1:启用" json:"status"`
+	CreatedAt                      time.Time              `gorm:"not null;default:now();comment:创建时间" json:"created_at"`
+	UpdatedAt                      time.Time              `gorm:"not null;default:now();comment:更新时间" json:"updated_at"`
 }
 
 func (CopyTrading) TableName() string {
