@@ -75,6 +75,27 @@ type Fill struct {
 	FeeToken      string `json:"feeToken"`
 }
 
+// --- UserFundingHistory ---
+
+type FundingHistoryRequest struct {
+	Type      string `json:"type"`
+	User      string `json:"user"`
+	StartTime int64  `json:"startTime"`
+	EndTime   int64  `json:"endTime"`
+}
+
+// FundingEntry API 返回的资金费记录
+type FundingEntry struct {
+	Time        int64   `json:"time"`
+	Hash        string  `json:"hash"`
+	Type        string  `json:"type"`
+	Coin        string  `json:"coin"`
+	Usdc        string  `json:"usdc"`
+	Szi         string  `json:"szi"`
+	FundingRate string  `json:"fundingRate"`
+	NSamples    *int    `json:"nSamples"`
+}
+
 // --- ClearinghouseState (永续合约持仓 + 保证金) ---
 
 type ClearinghouseState struct {

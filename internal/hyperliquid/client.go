@@ -17,7 +17,8 @@ const (
 	leaderboardURL = "https://stats-data.hyperliquid.xyz/Mainnet/leaderboard"
 	infoURL        = "https://api.hyperliquid.xyz/info"
 
-	fillsLimit = 2000 // API 单次返回上限
+	fillsLimit   = 2000 // API 单次返回上限
+	fundingLimit = 500 // 资金费 API 单次返回上限
 )
 
 // Client Hyperliquid API 客户端
@@ -136,6 +137,47 @@ func (c *Client) FetchUserFillsByTime(address string, startTimeMs, endTimeMs int
 // IsAtLimit 判断返回结果是否达到 API 上限
 func IsAtLimit(fills []model.Fill) bool {
 	return len(fills) >= fillsLimit
+}
+
+// --- UserFundingHistory ---
+
+// FetchUserFundingHistory 按时间范围获取用户资金费记录
+func (c *Client) FetchUserFundingHistory(address string, startTimeMs, endTimeMs int64) ([]model.FundingEntry, error) {
+	payload, _ := json.Marshal(model.FundingHistoryRequest{
+		Type:      "userFundingHistory",
+		User:      address,
+		StartTime: startTimeMs,
+		EndTime:   endTimeMs,
+	})
+
+	resp, err := c.http.Post(infoURL, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("fetch funding for %s: %w", address, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 429 {
+		return nil, fmt.Errorf("rate limited (429)")
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read funding body: %w", err)
+	}
+
+	var entries []model.FundingEntry
+	if err := json.Unmarshal(body, &entries); err != nil {
+		return nil, fmt.Errorf("unmarshal funding for %s: %w", address, err)
+	}
+	return entries, nil
+}
+
+// IsFundingAtLimit 判断资金费返回结果是否达到 API 上限
+func IsFundingAtLimit(entries []model.FundingEntry) bool {
+	return len(entries) >= fundingLimit
 }
 
 // --- ClearinghouseState (永续合约持仓 + 保证金) ---
