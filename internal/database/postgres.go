@@ -46,6 +46,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.Membership{},
 		&model.Notification{},
 		&model.NotificationRead{},
+		&model.CronTask{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
@@ -69,6 +70,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"membership":            "会员表",
 		"notification":          "通知表",
 		"notification_read":     "通知已读记录表",
+		"cron_task":             "定时任务表",
 	}
 	for table, comment := range tableComments {
 		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {
