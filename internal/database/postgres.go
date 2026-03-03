@@ -43,6 +43,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.Wallet{},
 		&model.MyTrackWallet{},
 		&model.UserPosition{},
+		&model.Membership{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
@@ -63,6 +64,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"wallet":                "钱包表",
 		"my_track_wallet":       "跟踪钱包表",
 		"position":              "持仓表",
+		"membership":            "会员表",
 	}
 	for table, comment := range tableComments {
 		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {
