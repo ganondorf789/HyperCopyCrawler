@@ -18,7 +18,8 @@ const (
 	infoURL        = "https://api.hyperliquid.xyz/info"
 
 	fillsLimit   = 2000 // API 单次返回上限
-	fundingLimit = 500 // 资金费 API 单次返回上限
+	fundingLimit = 500  // 资金费 API 单次返回上限
+	ordersLimit  = 2000 // 历史委托 API 单次返回上限
 )
 
 // Client Hyperliquid API 客户端
@@ -178,6 +179,47 @@ func (c *Client) FetchUserFundingHistory(address string, startTimeMs, endTimeMs 
 // IsFundingAtLimit 判断资金费返回结果是否达到 API 上限
 func IsFundingAtLimit(entries []model.FundingEntry) bool {
 	return len(entries) >= fundingLimit
+}
+
+// --- HistoricalOrders ---
+
+// FetchHistoricalOrders 按时间范围获取用户历史委托记录
+func (c *Client) FetchHistoricalOrders(address string, startTimeMs, endTimeMs int64) ([]model.OrderEntry, error) {
+	payload, _ := json.Marshal(model.HistoricalOrdersRequest{
+		Type:      "historicalOrders",
+		User:      address,
+		StartTime: startTimeMs,
+		EndTime:   endTimeMs,
+	})
+
+	resp, err := c.http.Post(infoURL, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("fetch orders for %s: %w", address, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 429 {
+		return nil, fmt.Errorf("rate limited (429)")
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read orders body: %w", err)
+	}
+
+	var orders []model.OrderEntry
+	if err := json.Unmarshal(body, &orders); err != nil {
+		return nil, fmt.Errorf("unmarshal orders for %s: %w", address, err)
+	}
+	return orders, nil
+}
+
+// IsOrdersAtLimit 判断历史委托返回结果是否达到 API 上限
+func IsOrdersAtLimit(orders []model.OrderEntry) bool {
+	return len(orders) >= ordersLimit
 }
 
 // --- ClearinghouseState (永续合约持仓 + 保证金) ---

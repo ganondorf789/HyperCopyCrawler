@@ -96,6 +96,36 @@ type FundingEntry struct {
 	NSamples    *int    `json:"nSamples"`
 }
 
+// --- HistoricalOrders ---
+
+type HistoricalOrdersRequest struct {
+	Type      string `json:"type"`
+	User      string `json:"user"`
+	StartTime int64  `json:"startTime"`
+	EndTime   int64  `json:"endTime"`
+}
+
+// OrderEntry API 返回的历史委托记录
+type OrderEntry struct {
+	Coin             string          `json:"coin"`
+	Side             string          `json:"side"`
+	LimitPx          string          `json:"limitPx"`
+	Sz               string          `json:"sz"`
+	Oid              int64           `json:"oid"`
+	Timestamp        int64           `json:"timestamp"`
+	TriggerCondition string          `json:"triggerCondition"`
+	IsTrigger        bool            `json:"isTrigger"`
+	TriggerPx        string          `json:"triggerPx"`
+	Children         json.RawMessage `json:"children"`
+	IsPositionTpsl   bool            `json:"isPositionTpsl"`
+	ReduceOnly       bool            `json:"reduceOnly"`
+	OrderType        string          `json:"orderType"`
+	OrigSz           string          `json:"origSz"`
+	Tif              string          `json:"tif"`
+	Cloid            *string         `json:"cloid"`
+	Status           string          `json:"status"`
+}
+
 // --- ClearinghouseState (永续合约持仓 + 保证金) ---
 
 type ClearinghouseState struct {

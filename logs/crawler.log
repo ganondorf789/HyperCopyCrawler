@@ -14,3 +14,9 @@
 {"level":"info","ts":"2026-03-03T11:47:10.423+0800","caller":"crawler/main.go:37","msg":"HyperCopyCrawler started"}
 {"level":"info","ts":"2026-03-03T11:47:10.423+0800","caller":"crawler/crawler.go:30","msg":"[crawler] fetching leaderboard..."}
 {"level":"fatal","ts":"2026-03-03T11:47:12.821+0800","caller":"crawler/main.go:43","msg":"sync leaderboard: fetch leaderboard: unmarshal leaderboard: json: cannot unmarshal number into Go struct field LeaderboardRow.leaderboardRows.prize of type string","stacktrace":"main.main\n\tD:/UGit/HyperCopyCrawler/cmd/crawler/main.go:43\nruntime.main\n\tC:/Program Files/Go/src/runtime/proc.go:285"}
+{"level":"warn","ts":"2026-03-03T15:18:49.396+0800","caller":"database/postgres.go:85","msg":"[postgres] failed to set comment on table user: ERROR: syntax error at or near \"user\" (SQLSTATE 42601)"}
+{"level":"info","ts":"2026-03-03T15:18:49.406+0800","caller":"database/postgres.go:89","msg":"[postgres] connected and migrated successfully"}
+{"level":"info","ts":"2026-03-03T15:18:49.415+0800","caller":"database/redis.go:23","msg":"[redis] connected successfully"}
+{"level":"info","ts":"2026-03-03T15:18:49.415+0800","caller":"crawler/main.go:37","msg":"HyperCopyCrawler started"}
+{"level":"info","ts":"2026-03-03T15:18:49.415+0800","caller":"crawler/crawler.go:30","msg":"[crawler] fetching leaderboard..."}
+{"level":"fatal","ts":"2026-03-03T15:18:51.600+0800","caller":"crawler/main.go:43","msg":"sync leaderboard: fetch leaderboard: unmarshal leaderboard: json: cannot unmarshal number into Go struct field LeaderboardRow.leaderboardRows.prize of type string","stacktrace":"main.main\n\tD:/UGit/HyperCopyCrawler/cmd/crawler/main.go:43\nruntime.main\n\tC:/Program Files/Go/src/runtime/proc.go:285"}
