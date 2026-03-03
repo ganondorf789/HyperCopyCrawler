@@ -1,0 +1,1 @@
+{"level":"fatal","ts":"2026-03-03T09:37:07.984+0800","caller":"resetdb/main.go:56","msg":"postgres: failed to auto migrate: ERROR: constraint \"uni_user_username\" of relation \"user\" does not exist (SQLSTATE 42704)","stacktrace":"main.main\n\tD:/UGit/HyperCopyCrawler/cmd/resetdb/main.go:56\nruntime.main\n\tC:/Program Files/Go/src/runtime/proc.go:285"}
