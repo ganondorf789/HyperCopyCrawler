@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/lib/pq"
+)
 
 type CopyTrading struct {
 	ID                             int64                  `gorm:"primaryKey;comment:主键ID" json:"id"`
@@ -12,6 +16,12 @@ type CopyTrading struct {
 	FollowOnce                     int                    `gorm:"not null;default:0;comment:是否只跟一次 0:否 1:是" json:"follow_once"`
 	PositionConditions             Conditions             `gorm:"type:jsonb;default:'[]';comment:持仓筛选条件(JSON数组)" json:"position_conditions"`
 	TraderConditions               Conditions             `gorm:"type:jsonb;default:'[]';comment:交易员筛选条件(JSON数组)" json:"trader_conditions"`
+	TagAccountValue                string                 `gorm:"type:varchar(32);not null;default:'';comment:账户总价值 small/medium/whale" json:"tag_account_value"`
+	TagProfitScale                 string                 `gorm:"type:varchar(32);not null;default:'';comment:盈利规模 small/medium/large" json:"tag_profit_scale"`
+	TagDirection                   string                 `gorm:"type:varchar(32);not null;default:'';comment:方向偏好 short/neutral/long" json:"tag_direction"`
+	TagTradingRhythm               string                 `gorm:"type:varchar(32);not null;default:'';comment:交易节奏 longterm/swing/short/scalping" json:"tag_trading_rhythm"`
+	TagProfitStatus                string                 `gorm:"type:varchar(32);not null;default:'';comment:盈利状态 steady/volatile/balanced" json:"tag_profit_status"`
+	TagTradingStyles               pq.StringArray         `gorm:"type:text[];default:'{}';comment:交易风格(多选) hf_stable/hf_aggressive/lf_stable/lf_aggressive/steady_profit/high_risk_high_return/asymmetric/low_drawdown/volatility" json:"tag_trading_styles"`
 	TraderMetricPeriod             string                 `gorm:"type:varchar(16);not null;default:'7d';comment:交易员指标周期 1d/7d/30d/90d/all" json:"trader_metric_period"`
 	FollowMarginMode               int                    `gorm:"not null;default:1;comment:跟单保证金模式 1:逐仓 2:全仓" json:"follow_margin_mode"`
 	FollowSymbol                   string                 `gorm:"type:varchar(64);not null;default:'';comment:跟单币种" json:"follow_symbol"`
