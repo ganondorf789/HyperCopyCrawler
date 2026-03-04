@@ -230,6 +230,16 @@ func (w *Watcher) upsertHolding(address string, positions model.CoinPositions) e
 
 func (w *Watcher) trackAndPublish(evt NewPositionEvent, setting *model.SystemSetting) {
 	ctx := context.Background()
+
+	data, err := json.Marshal(evt)
+	if err != nil {
+		zap.S().Errorf("[watcher] marshal event error: %v", err)
+		return
+	}
+	if err := w.rdb.Publish(ctx, redisChannel, string(data)).Err(); err != nil {
+		zap.S().Errorf("[watcher] redis publish new position error: %v", err)
+	}
+
 	now := float64(time.Now().UnixMilli())
 	member := fmt.Sprintf("%s:%s:%d", evt.Address, evt.Coin, int64(now))
 
