@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 
 	"github.com/hypercopy/crawler/internal/model"
@@ -64,17 +65,21 @@ type tradeStats struct {
 	shortProfitCount int
 	shortPnl         float64
 	shortWinRate     float64
+
+	coins []string
 }
 
 func calcTradeStats(trades []model.CompletedTrade, cutoff int64) tradeStats {
 	var ts tradeStats
 	total := 0
+	coinSet := make(map[string]struct{})
 
 	for _, t := range trades {
 		if t.EndTime < cutoff {
 			continue
 		}
 		total++
+		coinSet[t.Coin] = struct{}{}
 
 		if t.Pnl > 0 {
 			ts.profitCount++
@@ -106,6 +111,13 @@ func calcTradeStats(trades []model.CompletedTrade, cutoff int64) tradeStats {
 	if ts.shortCount > 0 {
 		ts.shortWinRate = float64(ts.shortProfitCount) / float64(ts.shortCount)
 	}
+
+	ts.coins = make([]string, 0, len(coinSet))
+	for c := range coinSet {
+		ts.coins = append(ts.coins, c)
+	}
+	sort.Strings(ts.coins)
+
 	return ts
 }
 
@@ -226,6 +238,7 @@ func buildStat(
 		ShortWinRate:       utility.FmtFloat(ts.shortWinRate),
 		UnrealizedPnl:      utility.OrZero(trader.SnapUnrealizedPnl),
 		AvgLeverage:        utility.OrZero(trader.SnapEffLeverage),
+		Coins:              pq.StringArray(ts.coins),
 	}
 }
 
@@ -240,7 +253,7 @@ func (s *Syncer) upsertStat(stat *model.TraderStatistic) error {
 			"margin_usage", "used_margin", "profit_count", "win_rate",
 			"total_pnl", "long_count", "long_realized_pnl", "long_win_rate",
 			"short_count", "short_realized_pnl", "short_win_rate",
-			"unrealized_pnl", "avg_leverage", "updated_at",
+			"unrealized_pnl", "avg_leverage", "coins", "updated_at",
 		}),
 	}).Create(stat).Error
 }

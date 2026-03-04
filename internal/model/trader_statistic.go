@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/lib/pq"
+)
 
 // TraderStatistic 交易员统计指标表（trader_statistics）
 type TraderStatistic struct {
@@ -27,7 +31,8 @@ type TraderStatistic struct {
 	ShortRealizedPnl   string    `gorm:"type:numeric;comment:空仓已实现盈亏"`
 	ShortWinRate       string    `gorm:"type:numeric;comment:空仓胜率"`
 	UnrealizedPnl      string    `gorm:"type:numeric;comment:未实现盈亏"`
-	AvgLeverage        string    `gorm:"type:numeric;comment:平均杠杆"`
-	CreatedAt          time.Time `gorm:"comment:创建时间"`
+	AvgLeverage        string         `gorm:"type:numeric;comment:平均杠杆"`
+	Coins              pq.StringArray `gorm:"type:text[];default:'{}';comment:交易过的币种"`
+	CreatedAt          time.Time      `gorm:"comment:创建时间"`
 	UpdatedAt          time.Time `gorm:"comment:更新时间"`
 }
