@@ -99,7 +99,11 @@ func (s *Syncer) processOne(client *hyperliquid.Client, address string) error {
 		return err
 	}
 
-	return s.updateTraderSnap(address, chState, spotState)
+	if err := s.updateTraderSnap(address, chState, spotState); err != nil {
+		return err
+	}
+
+	return s.updateStatistics(address)
 }
 
 func (s *Syncer) upsertPositions(address string, positions []model.AssetPosition) error {

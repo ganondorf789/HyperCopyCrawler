@@ -1,4 +1,4 @@
-package statistic
+package snapshot
 
 import (
 	"strconv"
@@ -84,7 +84,6 @@ func calcLabelMetrics(trader *model.Trader, trades []model.CompletedTrade, accou
 
 	now := time.Now()
 
-	// 30-day rolling return from account value series
 	cutoff30Ts := float64(now.Add(-30 * 24 * time.Hour).UnixMilli())
 	var val30DaysAgo float64
 	for _, pt := range series {
@@ -97,7 +96,6 @@ func calcLabelMetrics(trader *model.Trader, trades []model.CompletedTrade, accou
 		m.rolling30Return = (series[len(series)-1][1] - val30DaysAgo) / val30DaysAgo
 	}
 
-	// 90-day max drawdown from account value series
 	cutoff90Ts := float64(now.Add(-90 * 24 * time.Hour).UnixMilli())
 	var series90 [][2]float64
 	for _, pt := range series {

@@ -1,96 +1,38 @@
-package statistic
+package snapshot
 
 import (
 	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
-	"sync"
-	"sync/atomic"
 
 	"github.com/hypercopy/crawler/internal/model"
 	"github.com/hypercopy/crawler/internal/utility"
 	"github.com/lib/pq"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 var allWindows = []string{"day", "week", "month", "allTime"}
 
-type Calculator struct {
-	db      *gorm.DB
-	workers int
-}
-
-func NewCalculator(db *gorm.DB, workers int) *Calculator {
-	return &Calculator{db: db, workers: workers}
-}
-
-func (c *Calculator) Run() {
-	var traders []model.Trader
-	if err := c.db.Select("address").Find(&traders).Error; err != nil {
-		zap.S().Fatalf("[statistic] load traders: %v", err)
-	}
-
-	total := int64(len(traders))
-	zap.S().Infof("[statistic] %d traders to process", total)
-
-	addrCh := make(chan string, len(traders))
-	for _, t := range traders {
-		addrCh <- t.Address
-	}
-	close(addrCh)
-
-	var (
-		wg   sync.WaitGroup
-		done atomic.Int64
-		errs atomic.Int64
-	)
-
-	for i := 0; i < c.workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for address := range addrCh {
-				if err := c.processTrader(address); err != nil {
-					zap.S().Warnf("[statistic] %s error: %v", utility.Abbr(address), err)
-					errs.Add(1)
-				}
-				cur := done.Add(1)
-				if cur%100 == 0 || cur == total {
-					zap.S().Infof("[statistic] progress: %d/%d", cur, total)
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-	zap.S().Infof("[statistic] done: %d/%d succeeded, %d errors",
-		done.Load()-errs.Load(), total, errs.Load())
-}
-
-// ── per-trader pipeline ─────────────────────────────────────────────
-
-func (c *Calculator) processTrader(address string) error {
+func (s *Syncer) updateStatistics(address string) error {
 	var trader model.Trader
-	if err := c.db.Where("address = ?", address).First(&trader).Error; err != nil {
+	if err := s.db.Where("address = ?", address).First(&trader).Error; err != nil {
 		return fmt.Errorf("load trader: %w", err)
 	}
 
 	var trades []model.CompletedTrade
-	c.db.Where("address = ?", address).Find(&trades)
+	s.db.Where("address = ?", address).Find(&trades)
 
 	avMap := make(map[string][]byte)
 	var accountValues []model.TraderAccountValue
-	c.db.Where("address = ?", address).Find(&accountValues)
+	s.db.Where("address = ?", address).Find(&accountValues)
 	for _, av := range accountValues {
 		avMap[av.Window] = []byte(av.History)
 	}
 
 	for _, window := range allWindows {
 		stat := buildStat(address, window, &trader, trades, avMap[window])
-		if err := c.upsert(&stat); err != nil {
+		if err := s.upsertStat(&stat); err != nil {
 			return fmt.Errorf("upsert %s/%s: %w", utility.Abbr(address), window, err)
 		}
 	}
@@ -99,7 +41,7 @@ func (c *Calculator) processTrader(address string) error {
 	if labels == nil {
 		labels = []string{}
 	}
-	if err := c.db.Model(&trader).Update("labels", pq.StringArray(labels)).Error; err != nil {
+	if err := s.db.Model(&trader).Update("labels", pq.StringArray(labels)).Error; err != nil {
 		return fmt.Errorf("update labels %s: %w", utility.Abbr(address), err)
 	}
 
@@ -289,8 +231,8 @@ func buildStat(
 
 // ── upsert ──────────────────────────────────────────────────────────
 
-func (c *Calculator) upsert(stat *model.TraderStatistic) error {
-	return c.db.Clauses(clause.OnConflict{
+func (s *Syncer) upsertStat(stat *model.TraderStatistic) error {
+	return s.db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "address"}, {Name: "window"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"sharpe", "drawdown", "position_count", "total_value", "perp_value",
