@@ -225,6 +225,7 @@ func (s *Syncer) updateTraderSnap(address string, ch *model.ClearinghouseState, 
 		"snap_unrealized_pnl":       totalUnrealizedPnl.Text('f', 10),
 		"long_pnl":                  longPnl.Text('f', 10),
 		"short_pnl":                 shortPnl.Text('f', 10),
+		"total_pnl":                 new(big.Float).Add(longPnl, shortPnl).Text('f', 10),
 	}
 
 	return s.db.Model(&model.Trader{}).Where("address = ?", address).Updates(updates).Error

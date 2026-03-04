@@ -33,6 +33,7 @@ type Trader struct {
 	ShortWinRate            *float64       `gorm:"type:numeric;comment:空头胜率"`
 	LongPnl                 string         `gorm:"type:numeric;comment:多头盈亏"`
 	LongWinRate             *float64       `gorm:"type:numeric;comment:多头胜率"`
+	TotalPnl                string         `gorm:"type:numeric;comment:总盈亏"`
 	CreatedAt               time.Time      `gorm:"comment:创建时间"`
 	UpdatedAt               time.Time      `gorm:"comment:更新时间"`
 }
