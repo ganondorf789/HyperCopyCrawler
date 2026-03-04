@@ -32,3 +32,14 @@
 {"level":"info","ts":"2026-03-04T10:26:54.059+0800","caller":"crawler/main.go:37","msg":"HyperCopyCrawler started"}
 {"level":"info","ts":"2026-03-04T10:26:54.059+0800","caller":"crawler/crawler.go:30","msg":"[crawler] fetching leaderboard..."}
 {"level":"fatal","ts":"2026-03-04T10:27:15.515+0800","caller":"crawler/main.go:43","msg":"sync leaderboard: fetch leaderboard: unmarshal leaderboard: json: cannot unmarshal number into Go struct field LeaderboardRow.leaderboardRows.prize of type string","stacktrace":"main.main\n\tD:/UGit/HyperCopyCrawler/cmd/crawler/main.go:43\nruntime.main\n\tC:/Program Files/Go/src/runtime/proc.go:285"}
+{"level":"fatal","ts":"2026-03-04T13:56:53.569+0800","caller":"crawler/main.go:27","msg":"postgres: failed to connect postgres: failed to connect to `user=postgres database=hypercopy`:\n\t[::1]:5432 (localhost): dial error: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.\n\t127.0.0.1:5432 (localhost): dial error: dial tcp 127.0.0.1:5432: connectex: No connection could be made because the target machine actively refused it.","stacktrace":"main.main\n\tD:/UGit/HyperCopyCrawler/cmd/crawler/main.go:27\nruntime.main\n\tC:/Program Files/Go/src/runtime/proc.go:285"}
+{"level":"warn","ts":"2026-03-04T13:57:37.271+0800","caller":"database/postgres.go:95","msg":"[postgres] failed to set comment on table user: ERROR: syntax error at or near \"user\" (SQLSTATE 42601)"}
+{"level":"info","ts":"2026-03-04T13:57:37.348+0800","caller":"database/postgres.go:99","msg":"[postgres] connected and migrated successfully"}
+{"level":"info","ts":"2026-03-04T13:57:37.364+0800","caller":"database/redis.go:23","msg":"[redis] connected successfully"}
+{"level":"info","ts":"2026-03-04T13:57:37.364+0800","caller":"crawler/main.go:37","msg":"HyperCopyCrawler started"}
+{"level":"info","ts":"2026-03-04T13:57:37.364+0800","caller":"crawler/crawler.go:30","msg":"[crawler] fetching leaderboard..."}
+{"level":"warn","ts":"2026-03-04T13:57:49.890+0800","caller":"database/postgres.go:95","msg":"[postgres] failed to set comment on table user: ERROR: syntax error at or near \"user\" (SQLSTATE 42601)"}
+{"level":"info","ts":"2026-03-04T13:57:49.949+0800","caller":"database/postgres.go:99","msg":"[postgres] connected and migrated successfully"}
+{"level":"info","ts":"2026-03-04T13:57:49.956+0800","caller":"database/redis.go:23","msg":"[redis] connected successfully"}
+{"level":"info","ts":"2026-03-04T13:57:49.956+0800","caller":"crawler/main.go:37","msg":"HyperCopyCrawler started"}
+{"level":"info","ts":"2026-03-04T13:57:49.956+0800","caller":"crawler/crawler.go:30","msg":"[crawler] fetching leaderboard..."}
