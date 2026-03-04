@@ -15,7 +15,11 @@ import (
 	"gorm.io/gorm"
 )
 
-const redisChannel = "new_positions"
+const (
+	redisChannel        = "new_positions"
+	marketAlertChannel  = "market_alert"
+	redisTimelineKey    = "watcher:new_position_timeline"
+)
 
 type NewPositionEvent struct {
 	Address               string `json:"address"`
@@ -60,6 +64,12 @@ func (w *Watcher) Run() {
 	client := w.newClient()
 
 	for round := 1; ; round++ {
+		var setting model.SystemSetting
+		if err := w.db.First(&setting).Error; err != nil {
+			zap.S().Warnf("[watcher] load system setting error: %v, using defaults (5min / 3 positions)", err)
+			setting = model.SystemSetting{MarketMinutes: 5, MarketNewPositionCount: 3}
+		}
+
 		var leaders []model.Leaderboard
 		query := w.db.Order("vlm DESC")
 		if w.offset > 0 {
@@ -92,15 +102,15 @@ func (w *Watcher) Run() {
 		}
 
 		total := len(addresses)
-		zap.S().Infof("[watcher] round %d: %d traders to watch (offset=%d, limit=%d, rate=%d/s)",
-			round, total, w.offset, w.limit, w.rate)
+		zap.S().Infof("[watcher] round %d: %d traders to watch (offset=%d, limit=%d, rate=%d/s, market=%dmin/%d)",
+			round, total, w.offset, w.limit, w.rate, setting.MarketMinutes, setting.MarketNewPositionCount)
 
 		succeeded, failed := 0, 0
 		for i, address := range addresses {
 			start := time.Now()
 
 			oldCoins := holdingMap[address]
-			if err := w.processOne(client, address, oldCoins); err != nil {
+			if err := w.processOne(client, address, oldCoins, &setting); err != nil {
 				zap.S().Warnf("[watcher] %s error: %v", address[:10], err)
 				failed++
 			} else {
@@ -152,7 +162,7 @@ func (w *Watcher) loadHoldings(addresses []string) (map[string]map[string]string
 	return result, nil
 }
 
-func (w *Watcher) processOne(client *hyperliquid.Client, address string, oldCoins map[string]string) error {
+func (w *Watcher) processOne(client *hyperliquid.Client, address string, oldCoins map[string]string, setting *model.SystemSetting) error {
 	chState, err := client.FetchClearinghouseState(address)
 	if err != nil {
 		return err
@@ -202,7 +212,7 @@ func (w *Watcher) processOne(client *hyperliquid.Client, address string, oldCoin
 	}
 
 	for _, evt := range newEvents {
-		w.publishEvent(evt)
+		w.trackAndPublish(evt, setting)
 	}
 
 	return nil
@@ -218,18 +228,53 @@ func (w *Watcher) upsertHolding(address string, positions model.CoinPositions) e
 		FirstOrCreate(&holding).Error
 }
 
-func (w *Watcher) publishEvent(evt NewPositionEvent) {
-	data, err := json.Marshal(evt)
+func (w *Watcher) trackAndPublish(evt NewPositionEvent, setting *model.SystemSetting) {
+	ctx := context.Background()
+	now := float64(time.Now().UnixMilli())
+	member := fmt.Sprintf("%s:%s:%d", evt.Address, evt.Coin, int64(now))
+
+	w.rdb.ZAdd(ctx, redisTimelineKey, redis.Z{Score: now, Member: member})
+
+	windowStart := now - float64(setting.MarketMinutes)*60*1000
+	w.rdb.ZRemRangeByScore(ctx, redisTimelineKey, "-inf", fmt.Sprintf("%f", windowStart))
+
+	count, err := w.rdb.ZCard(ctx, redisTimelineKey).Result()
 	if err != nil {
-		zap.S().Errorf("[watcher] marshal event error: %v", err)
+		zap.S().Errorf("[watcher] redis zcard error: %v", err)
+	}
+
+	zap.S().Infof("[watcher] new position: %s %s szi=%s entry=%s (count=%d/%d in %dmin)",
+		evt.Address[:10], evt.Coin, evt.Szi, evt.EntryPx,
+		count, setting.MarketNewPositionCount, setting.MarketMinutes)
+
+	if count >= int64(setting.MarketNewPositionCount) {
+		w.publishMarketAlert(count, setting)
+	}
+}
+
+type MarketAlert struct {
+	Count    int64 `json:"count"`
+	Minutes  int   `json:"minutes"`
+	Threshold int  `json:"threshold"`
+}
+
+func (w *Watcher) publishMarketAlert(count int64, setting *model.SystemSetting) {
+	alert := MarketAlert{
+		Count:     count,
+		Minutes:   setting.MarketMinutes,
+		Threshold: setting.MarketNewPositionCount,
+	}
+	data, err := json.Marshal(alert)
+	if err != nil {
+		zap.S().Errorf("[watcher] marshal market alert error: %v", err)
 		return
 	}
 
-	if err := w.rdb.Publish(context.Background(), redisChannel, string(data)).Err(); err != nil {
-		zap.S().Errorf("[watcher] redis publish error: %v", err)
+	if err := w.rdb.Publish(context.Background(), marketAlertChannel, string(data)).Err(); err != nil {
+		zap.S().Errorf("[watcher] redis publish market alert error: %v", err)
 		return
 	}
 
-	zap.S().Infof("[watcher] new position: %s %s szi=%s entry=%s",
-		evt.Address[:10], evt.Coin, evt.Szi, evt.EntryPx)
+	zap.S().Warnf("[watcher] MARKET ALERT: %d new positions in %d minutes (threshold=%d)",
+		count, setting.MarketMinutes, setting.MarketNewPositionCount)
 }
