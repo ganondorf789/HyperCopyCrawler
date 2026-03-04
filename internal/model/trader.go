@@ -34,6 +34,13 @@ type Trader struct {
 	LongPnl                 string         `gorm:"type:numeric;comment:多头盈亏"`
 	LongWinRate             *float64       `gorm:"type:numeric;comment:多头胜率"`
 	TotalPnl                string         `gorm:"type:numeric;comment:总盈亏"`
+	// 账户画像（对应 tooltipMap）
+	AccountTotalValue  string         `gorm:"type:varchar(64);comment:账户总价值(小资金/中等资金/巨鲸)"`
+	TradingRhythm      string         `gorm:"type:varchar(64);comment:交易节奏(长线/波段/短线/超短线)"`
+	ProfitStatus       string         `gorm:"type:varchar(64);comment:盈利状态(持续盈利/波动盈利/盈亏平衡)"`
+	DirectionPreference string         `gorm:"type:varchar(64);comment:方向偏好(偏空头/中性/偏多头)"`
+	TradingStyles      pq.StringArray `gorm:"type:text[];default:'{}';comment:交易风格(可多选)"`
+	ProfitScale        string         `gorm:"type:varchar(64);comment:盈利规模(小额盈利/中等盈利/大额盈利)"`
 	CreatedAt               time.Time      `gorm:"comment:创建时间"`
 	UpdatedAt               time.Time      `gorm:"comment:更新时间"`
 }
