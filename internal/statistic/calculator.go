@@ -10,6 +10,7 @@ import (
 
 	"github.com/hypercopy/crawler/internal/model"
 	"github.com/hypercopy/crawler/internal/utility"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -93,6 +94,15 @@ func (c *Calculator) processTrader(address string) error {
 			return fmt.Errorf("upsert %s/%s: %w", utility.Abbr(address), window, err)
 		}
 	}
+
+	labels := computeLabels(&trader, trades, avMap["allTime"])
+	if labels == nil {
+		labels = []string{}
+	}
+	if err := c.db.Model(&trader).Update("labels", pq.StringArray(labels)).Error; err != nil {
+		return fmt.Errorf("update labels %s: %w", utility.Abbr(address), err)
+	}
+
 	return nil
 }
 
