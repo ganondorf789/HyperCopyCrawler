@@ -13,6 +13,8 @@ type Trader struct {
 	Username       string         `gorm:"type:varchar(255);not null;uniqueIndex;comment:推特用户名"`
 	Address        string         `gorm:"type:varchar(42);not null;uniqueIndex;comment:钱包地址"`
 	ProfilePicture string         `gorm:"type:text;comment:头像链接"`
+	IsHotAddress            bool           `gorm:"default:false;comment:是否热门地址"`
+	IsTwitterKOL            bool           `gorm:"default:false;comment:是否推特KOL"`
 	Labels                  pq.StringArray `gorm:"type:text[];default:'{}';comment:标签列表"`
 	SnapEffLeverage         string         `gorm:"type:numeric;comment:快照-有效杠杆"`
 	SnapLongPositionCount   int            `gorm:"default:0;comment:快照-多头持仓数"`

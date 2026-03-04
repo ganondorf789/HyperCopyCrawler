@@ -52,6 +52,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.AppVersion{},
 		&model.WhaleAnchor{},
 		&model.UserAppKey{},
+		&model.CoinMarket{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
@@ -81,6 +82,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"app_version":           "APP版本管理表",
 		"whale_anchor":          "巨鲸锚点表",
 		"user_app_key":          "用户AppID/AppSecret管理表",
+		"coin_market":           "币种行情数据表",
 	}
 	for table, comment := range tableComments {
 		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {

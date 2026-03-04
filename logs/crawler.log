@@ -20,3 +20,14 @@
 {"level":"info","ts":"2026-03-03T15:18:49.415+0800","caller":"crawler/main.go:37","msg":"HyperCopyCrawler started"}
 {"level":"info","ts":"2026-03-03T15:18:49.415+0800","caller":"crawler/crawler.go:30","msg":"[crawler] fetching leaderboard..."}
 {"level":"fatal","ts":"2026-03-03T15:18:51.600+0800","caller":"crawler/main.go:43","msg":"sync leaderboard: fetch leaderboard: unmarshal leaderboard: json: cannot unmarshal number into Go struct field LeaderboardRow.leaderboardRows.prize of type string","stacktrace":"main.main\n\tD:/UGit/HyperCopyCrawler/cmd/crawler/main.go:43\nruntime.main\n\tC:/Program Files/Go/src/runtime/proc.go:285"}
+{"level":"warn","ts":"2026-03-03T16:16:30.580+0800","caller":"database/postgres.go:87","msg":"[postgres] failed to set comment on table user: ERROR: syntax error at or near \"user\" (SQLSTATE 42601)"}
+{"level":"info","ts":"2026-03-03T16:16:30.585+0800","caller":"database/postgres.go:91","msg":"[postgres] connected and migrated successfully"}
+{"level":"info","ts":"2026-03-03T16:16:30.594+0800","caller":"database/redis.go:23","msg":"[redis] connected successfully"}
+{"level":"info","ts":"2026-03-03T16:16:30.594+0800","caller":"crawler/main.go:37","msg":"HyperCopyCrawler started"}
+{"level":"info","ts":"2026-03-03T16:16:30.594+0800","caller":"crawler/crawler.go:30","msg":"[crawler] fetching leaderboard..."}
+{"level":"fatal","ts":"2026-03-03T16:16:32.728+0800","caller":"crawler/main.go:43","msg":"sync leaderboard: fetch leaderboard: unmarshal leaderboard: json: cannot unmarshal number into Go struct field LeaderboardRow.leaderboardRows.prize of type string","stacktrace":"main.main\n\tD:/UGit/HyperCopyCrawler/cmd/crawler/main.go:43\nruntime.main\n\tC:/Program Files/Go/src/runtime/proc.go:285"}
+{"level":"warn","ts":"2026-03-04T10:26:53.982+0800","caller":"database/postgres.go:89","msg":"[postgres] failed to set comment on table user: ERROR: syntax error at or near \"user\" (SQLSTATE 42601)"}
+{"level":"info","ts":"2026-03-04T10:26:54.051+0800","caller":"database/postgres.go:93","msg":"[postgres] connected and migrated successfully"}
+{"level":"info","ts":"2026-03-04T10:26:54.059+0800","caller":"database/redis.go:23","msg":"[redis] connected successfully"}
+{"level":"info","ts":"2026-03-04T10:26:54.059+0800","caller":"crawler/main.go:37","msg":"HyperCopyCrawler started"}
+{"level":"info","ts":"2026-03-04T10:26:54.059+0800","caller":"crawler/crawler.go:30","msg":"[crawler] fetching leaderboard..."}
