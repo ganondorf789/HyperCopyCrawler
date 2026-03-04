@@ -57,6 +57,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.TraderCoinHolding{},
 		&model.Leaderboard{},
 		&model.SystemSetting{},
+		&model.TraderStatistic{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
@@ -91,6 +92,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"trader_coin_holding":   "交易员当前持仓币种表",
 		"leaderboard":           "排行榜表",
 		"system_setting":        "系统设置表",
+		"trader_statistics":     "交易员统计指标表（按时间窗口聚合）",
 	}
 	for table, comment := range tableComments {
 		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {
