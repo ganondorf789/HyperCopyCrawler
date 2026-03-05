@@ -8,24 +8,47 @@ import (
 	"go.uber.org/zap"
 )
 
-// 4层自适应细分策略（从前往后）：周 → 天 → 小时 → 10分钟
-// 月级拆分由 worker 控制，每月获取后立即保存，支持断点续传
+// 5层自适应细分策略：月 → 周 → 天 → 小时 → 10分钟
 // 当单次请求返回 >=500 条时，自动向下一层细分
 
-// FetchFundingForRange 获取指定时间范围内的资金费记录（自适应细分）
-// 调用方应按月迭代调用，每次传入不超过一个月的范围
-func FetchFundingForRange(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []model.FundingEntry {
-	entries, err := client.FetchUserFundingHistory(address, startMs, endMs)
-	if err != nil {
-		zap.S().Warnf("[funding] fetch error for %s: %v", address[:10], err)
-		return nil
-	}
-	if !hyperliquid.IsFundingAtLimit(entries) {
-		return entries
-	}
+// FetchAllFunding 获取交易员从 startMs 到 endMs 的所有资金费记录（自适应5层细分）
+func FetchAllFunding(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []model.FundingEntry {
+	return fetchByMonth(client, address, startMs, endMs, delay)
+}
 
-	zap.S().Infof("[funding] %s hit limit, split by week", address[:10])
-	return fetchByWeek(client, address, startMs, endMs, delay)
+// --- Level 1: 按月 ---
+func fetchByMonth(client *hyperliquid.Client, address string, startMs, endMs int64, delay time.Duration) []model.FundingEntry {
+	var all []model.FundingEntry
+	cur := time.UnixMilli(startMs).UTC()
+	end := time.UnixMilli(endMs).UTC()
+
+	for cur.Before(end) {
+		next := cur.AddDate(0, 1, 0)
+		if next.After(end) {
+			next = end
+		}
+		cMs := cur.UnixMilli()
+		nMs := next.UnixMilli()
+
+		entries, err := client.FetchUserFundingHistory(address, cMs, nMs)
+		if err != nil {
+			zap.S().Warnf("[funding] month error %s [%s]: %v", address[:10], cur.Format("2006-01"), err)
+			cur = next
+			sleep(delay)
+			continue
+		}
+
+		if hyperliquid.IsFundingAtLimit(entries) {
+			zap.S().Infof("[funding] %s month %s hit limit, split by week", address[:10], cur.Format("2006-01"))
+			all = append(all, fetchByWeek(client, address, cMs, nMs, delay)...)
+		} else {
+			all = append(all, entries...)
+		}
+
+		cur = next
+		sleep(delay)
+	}
+	return all
 }
 
 // --- Level 2: 按周 ---

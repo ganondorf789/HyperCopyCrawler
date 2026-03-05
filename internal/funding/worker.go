@@ -101,25 +101,12 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 		return 0
 	}
 
-	total := 0
-	cur := time.UnixMilli(startMs).UTC()
-	end := time.UnixMilli(endMs).UTC()
-
-	for cur.Before(end) {
-		next := cur.AddDate(0, 1, 0)
-		if next.After(end) {
-			next = end
-		}
-
-		entries := FetchFundingForRange(client, address, cur.UnixMilli(), next.UnixMilli(), w.delay)
-		if len(entries) > 0 {
-			total += w.saveFunding(address, entries)
-		}
-
-		cur = next
+	entries := FetchAllFunding(client, address, startMs, endMs, w.delay)
+	if len(entries) == 0 {
+		return 0
 	}
 
-	return total
+	return w.saveFunding(address, entries)
 }
 
 func (w *Worker) saveFunding(address string, entries []model.FundingEntry) int {
@@ -144,7 +131,7 @@ func (w *Worker) saveFunding(address string, entries []model.FundingEntry) int {
 			end = len(records)
 		}
 		if err := w.db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "hash"}},
+			Columns:   []clause.Column{{Name: "address"}, {Name: "time"}, {Name: "coin"}},
 			DoNothing: true,
 		}).Create(records[i:end]).Error; err != nil {
 			zap.S().Warnf("[funding] save error for %s batch %d: %v", address[:10], i/batch, err)
