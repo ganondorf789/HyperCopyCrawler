@@ -127,11 +127,12 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 }
 
 func (w *Worker) recordFailure(address string, e *ExceedsLimitErr) {
-	failure := model.FillFetchFailure{
-		Address:   address,
-		StartMs:   e.StartMs,
-		EndMs:     e.EndMs,
-		FillCount: e.Count,
+	failure := model.FetchFailure{
+		Type:        "fills",
+		Address:     address,
+		StartMs:     e.StartMs,
+		EndMs:       e.EndMs,
+		RecordCount: e.Count,
 	}
 	if err := w.db.Create(&failure).Error; err != nil {
 		zap.S().Warnf("[fills] failed to record fetch failure for %s: %v", address[:10], err)
