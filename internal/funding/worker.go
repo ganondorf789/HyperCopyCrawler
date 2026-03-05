@@ -101,12 +101,36 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 		return 0
 	}
 
-	entries := FetchAllFunding(client, address, startMs, endMs, w.delay)
-	if len(entries) == 0 {
+	entries, abortErr := FetchAllFunding(client, address, startMs, endMs, w.delay)
+	if len(entries) == 0 && abortErr == nil {
 		return 0
 	}
 
-	return w.saveFunding(address, entries)
+	n := 0
+	if len(entries) > 0 {
+		n = w.saveFunding(address, entries)
+	}
+
+	if abortErr != nil {
+		zap.S().Warnf("[funding] %s: fetch aborted (%s), skipping trader. %v", address[:10], abortErr.Reason, abortErr)
+		w.recordFailure(address, abortErr)
+	}
+
+	return n
+}
+
+func (w *Worker) recordFailure(address string, e *FetchAbortErr) {
+	failure := model.FetchFailure{
+		Type:        "funding",
+		Reason:      e.Reason,
+		Address:     address,
+		StartMs:     e.StartMs,
+		EndMs:       e.EndMs,
+		RecordCount: e.Count,
+	}
+	if err := w.db.Create(&failure).Error; err != nil {
+		zap.S().Warnf("[funding] failed to record fetch failure for %s: %v", address[:10], err)
+	}
 }
 
 func (w *Worker) saveFunding(address string, entries []model.FundingEntry) int {

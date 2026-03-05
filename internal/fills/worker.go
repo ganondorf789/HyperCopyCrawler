@@ -103,8 +103,8 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 		return 0
 	}
 
-	fills, exceedErr := FetchAllFills(client, address, startMs, endMs, w.delay)
-	if len(fills) == 0 && exceedErr == nil {
+	fills, abortErr := FetchAllFills(client, address, startMs, endMs, w.delay)
+	if len(fills) == 0 && abortErr == nil {
 		return 0
 	}
 
@@ -113,9 +113,9 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 		n = w.saveFills(address, fills)
 	}
 
-	if exceedErr != nil {
-		zap.S().Warnf("[fills] %s: exceeded limit at 30s granularity, skipping trader. %v", address[:10], exceedErr)
-		w.recordFailure(address, exceedErr)
+	if abortErr != nil {
+		zap.S().Warnf("[fills] %s: fetch aborted (%s), skipping trader. %v", address[:10], abortErr.Reason, abortErr)
+		w.recordFailure(address, abortErr)
 		return n
 	}
 
@@ -126,9 +126,10 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 	return n
 }
 
-func (w *Worker) recordFailure(address string, e *ExceedsLimitErr) {
+func (w *Worker) recordFailure(address string, e *FetchAbortErr) {
 	failure := model.FetchFailure{
 		Type:        "fills",
+		Reason:      e.Reason,
 		Address:     address,
 		StartMs:     e.StartMs,
 		EndMs:       e.EndMs,

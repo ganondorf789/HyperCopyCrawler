@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hypercopy/crawler/internal/model"
+	"go.uber.org/zap"
 )
 
 const (
@@ -20,7 +22,11 @@ const (
 	fillsLimit   = 2000 // API 单次返回上限
 	fundingLimit = 500  // 资金费 API 单次返回上限
 	ordersLimit  = 2000 // 历史委托 API 单次返回上限
+	maxRetries   = 3    // 429 限频最大重试次数
 )
+
+// ErrRateLimited 429 限频重试耗尽
+var ErrRateLimited = errors.New("rate limited")
 
 // Client Hyperliquid API 客户端
 type Client struct {
@@ -50,6 +56,41 @@ func NewClientWithProxy(proxyURL string) (*Client, error) {
 			Transport: transport,
 		},
 	}, nil
+}
+
+// postInfoWithRetry POST 请求 infoURL，遇到 429 自动重试（最多 maxRetries 次）
+func (c *Client) postInfoWithRetry(payload []byte) ([]byte, error) {
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		resp, err := c.http.Post(infoURL, "application/json", bytes.NewReader(payload))
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode == 429 {
+			resp.Body.Close()
+			if attempt < maxRetries {
+				wait := time.Duration(5*(attempt+1)) * time.Second
+				zap.S().Warnf("[api] 429 rate limited, retry %d/%d after %v", attempt+1, maxRetries, wait)
+				time.Sleep(wait)
+				continue
+			}
+			zap.S().Warnf("[api] 429 rate limited, all %d retries exhausted", maxRetries)
+			return nil, ErrRateLimited
+		}
+
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		return body, nil
+	}
+	return nil, ErrRateLimited
 }
 
 // --- Leaderboard ---
@@ -110,22 +151,9 @@ func (c *Client) FetchUserFillsByTime(address string, startTimeMs, endTimeMs int
 		EndTime:   endTimeMs,
 	})
 
-	resp, err := c.http.Post(infoURL, "application/json", bytes.NewReader(payload))
+	body, err := c.postInfoWithRetry(payload)
 	if err != nil {
 		return nil, fmt.Errorf("fetch fills for %s: %w", address, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 429 {
-		return nil, fmt.Errorf("rate limited (429)")
-	}
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read fills body: %w", err)
 	}
 
 	var fills []model.Fill
@@ -151,22 +179,9 @@ func (c *Client) FetchUserFundingHistory(address string, startTimeMs, endTimeMs 
 		EndTime:   endTimeMs,
 	})
 
-	resp, err := c.http.Post(infoURL, "application/json", bytes.NewReader(payload))
+	body, err := c.postInfoWithRetry(payload)
 	if err != nil {
 		return nil, fmt.Errorf("fetch funding for %s: %w", address, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 429 {
-		return nil, fmt.Errorf("rate limited (429)")
-	}
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read funding body: %w", err)
 	}
 
 	var entries []model.FundingEntry
@@ -192,22 +207,9 @@ func (c *Client) FetchHistoricalOrders(address string, startTimeMs, endTimeMs in
 		EndTime:   endTimeMs,
 	})
 
-	resp, err := c.http.Post(infoURL, "application/json", bytes.NewReader(payload))
+	body, err := c.postInfoWithRetry(payload)
 	if err != nil {
 		return nil, fmt.Errorf("fetch orders for %s: %w", address, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 429 {
-		return nil, fmt.Errorf("rate limited (429)")
-	}
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read orders body: %w", err)
 	}
 
 	var orders []model.OrderEntry
