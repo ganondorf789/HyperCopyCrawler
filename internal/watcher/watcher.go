@@ -9,7 +9,6 @@ import (
 
 	"github.com/hypercopy/crawler/internal/hyperliquid"
 	"github.com/hypercopy/crawler/internal/model"
-	"github.com/hypercopy/crawler/internal/proxy"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -40,22 +39,20 @@ type NewPositionEvent struct {
 }
 
 type Watcher struct {
-	db       *gorm.DB
-	rdb      *redis.Client
-	proxyMgr *proxy.Manager
-	rate     int
-	offset   int
-	limit    int
+	db     *gorm.DB
+	rdb    *redis.Client
+	rate   int
+	offset int
+	limit  int
 }
 
-func New(db *gorm.DB, rdb *redis.Client, proxyMgr *proxy.Manager, rate, offset, limit int) *Watcher {
+func New(db *gorm.DB, rdb *redis.Client, rate, offset, limit int) *Watcher {
 	return &Watcher{
-		db:       db,
-		rdb:      rdb,
-		proxyMgr: proxyMgr,
-		rate:     rate,
-		offset:   offset,
-		limit:    limit,
+		db:     db,
+		rdb:    rdb,
+		rate:   rate,
+		offset: offset,
+		limit:  limit,
 	}
 }
 
@@ -133,16 +130,7 @@ func (w *Watcher) Run() {
 }
 
 func (w *Watcher) newClient() *hyperliquid.Client {
-	p := w.proxyMgr.Next()
-	if p == nil {
-		return hyperliquid.NewClient()
-	}
-	c, err := hyperliquid.NewClientWithProxy(proxy.ProxyURL(p))
-	if err != nil {
-		zap.S().Warnf("[watcher] create proxy client error: %v, using direct", err)
-		return hyperliquid.NewClient()
-	}
-	return c
+	return hyperliquid.NewClient()
 }
 
 func (w *Watcher) loadHoldings(addresses []string) (map[string]map[string]string, error) {

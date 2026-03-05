@@ -46,9 +46,12 @@ func main() {
 	}
 
 	w := fills.NewWorker(db, proxyMgr, *workers, *delay)
-	if err := w.Run(); err != nil {
-		zap.S().Fatalf("run: %v", err)
+	for round := 1; ; round++ {
+		zap.S().Infof("[main] fills sync round %d starting", round)
+		if err := w.Run(); err != nil {
+			zap.S().Errorf("[main] fills sync round %d error: %v, retrying...", round, err)
+			continue
+		}
+		zap.S().Infof("[main] fills sync round %d finished", round)
 	}
-
-	zap.S().Info("[main] fills sync finished")
 }

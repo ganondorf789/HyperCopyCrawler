@@ -8,22 +8,19 @@ import (
 
 	"github.com/hypercopy/crawler/internal/hyperliquid"
 	"github.com/hypercopy/crawler/internal/model"
-	"github.com/hypercopy/crawler/internal/proxy"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type Syncer struct {
-	db       *gorm.DB
-	proxyMgr *proxy.Manager
-	workers  int
+	db      *gorm.DB
+	workers int
 }
 
-func NewSyncer(db *gorm.DB, proxyMgr *proxy.Manager, workers int) *Syncer {
+func NewSyncer(db *gorm.DB, workers int) *Syncer {
 	return &Syncer{
-		db:       db,
-		proxyMgr: proxyMgr,
-		workers:  workers,
+		db:      db,
+		workers: workers,
 	}
 }
 
@@ -66,11 +63,7 @@ func (s *Syncer) Run() {
 }
 
 func (s *Syncer) worker(workerIdx int, addrCh <-chan string, done, errs *atomic.Int64, total int64) {
-	client, err := s.proxyMgr.NewClientForWorker(workerIdx)
-	if err != nil {
-		zap.S().Errorf("[snapshot] worker %d: create client error: %v", workerIdx, err)
-		return
-	}
+	client := hyperliquid.NewClient()
 
 	for address := range addrCh {
 		if err := s.processOne(client, address); err != nil {

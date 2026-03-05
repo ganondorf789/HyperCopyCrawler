@@ -8,7 +8,6 @@ import (
 	"github.com/hypercopy/crawler/internal/config"
 	"github.com/hypercopy/crawler/internal/database"
 	"github.com/hypercopy/crawler/internal/logger"
-	"github.com/hypercopy/crawler/internal/proxy"
 	"github.com/hypercopy/crawler/internal/snapshot"
 	"go.uber.org/zap"
 )
@@ -31,12 +30,8 @@ func main() {
 		zap.S().Fatalf("postgres: %v", err)
 	}
 
-	proxyMgr, err := proxy.NewManager(db)
-	if err != nil {
-		zap.S().Fatalf("proxy manager: %v", err)
-	}
-	zap.S().Infof("[main] %d proxies loaded, %d workers", proxyMgr.Count(), *rate)
+	zap.S().Infof("[main] %d workers", *rate)
 
-	s := snapshot.NewSyncer(db, proxyMgr, *rate)
+	s := snapshot.NewSyncer(db, *rate)
 	s.Run()
 }
