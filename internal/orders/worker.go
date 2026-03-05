@@ -137,28 +137,29 @@ func (w *Worker) recordFailure(address string, e *FetchAbortErr) {
 func (w *Worker) saveOrders(address string, entries []model.OrderEntry) int {
 	records := make([]model.TraderOrder, 0, len(entries))
 	for _, e := range entries {
+		o := e.Order
 		children := "[]"
-		if len(e.Children) > 0 {
-			children = string(e.Children)
+		if len(o.Children) > 0 {
+			children = string(o.Children)
 		}
 		records = append(records, model.TraderOrder{
 			Address:          address,
-			Coin:             e.Coin,
-			Side:             e.Side,
-			LimitPx:          e.LimitPx,
-			Sz:               e.Sz,
-			Oid:              e.Oid,
-			Timestamp:        e.Timestamp,
-			TriggerCondition: e.TriggerCondition,
-			IsTrigger:        e.IsTrigger,
-			TriggerPx:        e.TriggerPx,
+			Coin:             o.Coin,
+			Side:             o.Side,
+			LimitPx:          o.LimitPx,
+			Sz:               o.Sz,
+			Oid:              o.Oid,
+			Timestamp:        o.Timestamp,
+			TriggerCondition: o.TriggerCondition,
+			IsTrigger:        o.IsTrigger,
+			TriggerPx:        o.TriggerPx,
 			Children:         children,
-			IsPositionTpsl:   e.IsPositionTpsl,
-			ReduceOnly:       e.ReduceOnly,
-			OrderType:        e.OrderType,
-			OrigSz:           e.OrigSz,
-			Tif:              e.Tif,
-			Cloid:            e.Cloid,
+			IsPositionTpsl:   o.IsPositionTpsl,
+			ReduceOnly:       o.ReduceOnly,
+			OrderType:        o.OrderType,
+			OrigSz:           o.OrigSz,
+			Tif:              o.Tif,
+			Cloid:            o.Cloid,
 			Status:           e.Status,
 		})
 	}

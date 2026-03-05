@@ -118,8 +118,15 @@ type HistoricalOrdersRequest struct {
 	EndTime   int64  `json:"endTime"`
 }
 
-// OrderEntry API 返回的历史委托记录
+// OrderEntry API 返回的历史委托记录（嵌套结构）
 type OrderEntry struct {
+	Order           OrderDetail `json:"order"`
+	Status          string      `json:"status"`
+	StatusTimestamp int64       `json:"statusTimestamp"`
+}
+
+// OrderDetail 委托详情（嵌套在 OrderEntry.order 内）
+type OrderDetail struct {
 	Coin             string          `json:"coin"`
 	Side             string          `json:"side"`
 	LimitPx          string          `json:"limitPx"`
@@ -136,7 +143,6 @@ type OrderEntry struct {
 	OrigSz           string          `json:"origSz"`
 	Tif              string          `json:"tif"`
 	Cloid            *string         `json:"cloid"`
-	Status           string          `json:"status"`
 }
 
 // --- ClearinghouseState (永续合约持仓 + 保证金) ---
