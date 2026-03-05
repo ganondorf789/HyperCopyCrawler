@@ -109,6 +109,7 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 	n := 0
 	if len(entries) > 0 {
 		n = w.saveFunding(address, entries)
+		zap.S().Infof("[funding] %s: fetched %d, saved %d", address[:10], len(entries), n)
 	}
 
 	if abortErr != nil {

@@ -111,6 +111,7 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 	n := 0
 	if len(fills) > 0 {
 		n = w.saveFills(address, fills)
+		zap.S().Infof("[fills] %s: fetched %d, saved %d", address[:10], len(fills), n)
 	}
 
 	if abortErr != nil {
