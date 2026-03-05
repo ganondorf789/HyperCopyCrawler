@@ -9,8 +9,8 @@ import (
 // Trader 交易员信息表（traders）
 type Trader struct {
 	ID             uint           `gorm:"primaryKey;comment:主键ID"`
-	TwitterName    string         `gorm:"type:varchar(255);not null;comment:推特显示名"`
-	Username       string         `gorm:"type:varchar(255);not null;uniqueIndex;comment:推特用户名"`
+	TwitterName    string         `gorm:"type:varchar(255);default:'';comment:推特显示名"`
+	Username       string         `gorm:"type:varchar(255);uniqueIndex;default:'';comment:推特用户名"`
 	Address        string         `gorm:"type:varchar(42);not null;uniqueIndex;comment:钱包地址"`
 	ProfilePicture string         `gorm:"type:text;comment:头像链接"`
 	IsHotAddress            bool           `gorm:"default:false;comment:是否热门地址"`

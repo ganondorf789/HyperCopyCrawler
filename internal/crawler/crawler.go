@@ -81,7 +81,7 @@ func (c *Crawler) SyncLeaderboard() error {
 				Address: row.EthAddress,
 			})
 		}
-		if err := c.db.Clauses(clause.OnConflict{
+		if err := c.db.Select("Address").Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "address"}},
 			DoNothing: true,
 		}).Create(&traders).Error; err != nil {

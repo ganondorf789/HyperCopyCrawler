@@ -12,7 +12,7 @@ type LeaderboardRow struct {
 	EthAddress         string              `json:"ethAddress"`
 	AccountValue       string              `json:"accountValue"`
 	DisplayName        string              `json:"displayName"`
-	Prize              string              `json:"prize"`
+	Prize              json.RawMessage     `json:"prize"`
 	WindowPerformances []WindowPerformance `json:"windowPerformances"`
 }
 
