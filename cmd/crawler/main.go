@@ -1,17 +1,25 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/hypercopy/crawler/internal/config"
 	"github.com/hypercopy/crawler/internal/crawler"
 	"github.com/hypercopy/crawler/internal/database"
 	"github.com/hypercopy/crawler/internal/logger"
+	"github.com/hypercopy/crawler/internal/proxy"
 	"go.uber.org/zap"
 )
 
 func main() {
+	workers := flag.Int("workers", 10, "并发 worker 数量")
+	rate := flag.Duration("rate", 200*time.Millisecond, "每次 API 请求间隔")
+	useProxy := flag.Bool("proxy", false, "是否启用代理池")
+	flag.Parse()
+
 	_, cleanup, err := logger.Init("crawler")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "init logger: %v\n", err)
@@ -21,29 +29,36 @@ func main() {
 
 	cfg := config.Load()
 
-	// Connect PostgreSQL
 	db, err := database.NewPostgres(cfg.Postgres)
 	if err != nil {
 		zap.S().Fatalf("postgres: %v", err)
 	}
 
-	// Connect Redis
 	rdb, err := database.NewRedis(cfg.Redis)
 	if err != nil {
 		zap.S().Fatalf("redis: %v", err)
 	}
 	defer rdb.Close()
 
+	var proxyMgr *proxy.Manager
+	if *useProxy {
+		proxyMgr, err = proxy.NewManager(db)
+		if err != nil {
+			zap.S().Fatalf("proxy manager: %v", err)
+		}
+		zap.S().Infof("[main] proxy enabled, %d proxies loaded, %d workers", proxyMgr.Count(), *workers)
+	} else {
+		zap.S().Infof("[main] proxy disabled, %d workers (direct connection)", *workers)
+	}
+
 	zap.S().Info("HyperCopyCrawler started")
 
-	c := crawler.New(db)
+	c := crawler.New(db, proxyMgr, *workers, *rate)
 
-	// Step 1: 获取排行榜前5000交易员 -> Trader + TraderPerformance
 	if err := c.SyncLeaderboard(); err != nil {
 		zap.S().Fatalf("sync leaderboard: %v", err)
 	}
 
-	// Step 2: 获取每个交易员的 portfolio -> TraderPnlHistory + TraderAccountValue
 	if err := c.SyncPortfolios(); err != nil {
 		zap.S().Fatalf("sync portfolios: %v", err)
 	}

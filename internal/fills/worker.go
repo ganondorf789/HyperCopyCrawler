@@ -69,10 +69,16 @@ func (w *Worker) Run() error {
 }
 
 func (w *Worker) worker(workerIdx int, addrCh <-chan string, done, saved *atomic.Int64, total int64) {
-	client, err := w.proxyMgr.NewClientForWorker(workerIdx)
-	if err != nil {
-		zap.S().Warnf("[fills] worker %d: create client error: %v", workerIdx, err)
-		return
+	var client *hyperliquid.Client
+	if w.proxyMgr != nil {
+		var err error
+		client, err = w.proxyMgr.NewClientForWorker(workerIdx)
+		if err != nil {
+			zap.S().Warnf("[fills] worker %d: create client error: %v", workerIdx, err)
+			return
+		}
+	} else {
+		client = hyperliquid.NewClient()
 	}
 
 	for address := range addrCh {

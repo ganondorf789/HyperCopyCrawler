@@ -4,31 +4,51 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hypercopy/crawler/internal/hyperliquid"
 	"github.com/hypercopy/crawler/internal/model"
+	"github.com/hypercopy/crawler/internal/proxy"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type Crawler struct {
-	db     *gorm.DB
-	client *hyperliquid.Client
+	db       *gorm.DB
+	proxyMgr *proxy.Manager
+	workers  int
+	delay    time.Duration
 }
 
-func New(db *gorm.DB) *Crawler {
+func New(db *gorm.DB, proxyMgr *proxy.Manager, workers int, delay time.Duration) *Crawler {
 	return &Crawler{
-		db:     db,
-		client: hyperliquid.NewClient(),
+		db:       db,
+		proxyMgr: proxyMgr,
+		workers:  workers,
+		delay:    delay,
 	}
+}
+
+func (c *Crawler) newClient(workerIdx int) *hyperliquid.Client {
+	if c.proxyMgr != nil {
+		client, err := c.proxyMgr.NewClientForWorker(workerIdx)
+		if err != nil {
+			zap.S().Warnf("[crawler] worker %d: create proxy client error: %v, falling back to direct", workerIdx, err)
+			return hyperliquid.NewClient()
+		}
+		return client
+	}
+	return hyperliquid.NewClient()
 }
 
 // SyncLeaderboard 获取排行榜前5000交易员，保存地址到Trader表，windowPerformances保存到TraderPerformance表
 func (c *Crawler) SyncLeaderboard() error {
 	zap.S().Info("[crawler] fetching leaderboard...")
-	resp, err := c.client.FetchLeaderboard()
+	client := c.newClient(0)
+	resp, err := client.FetchLeaderboard()
 	if err != nil {
 		return fmt.Errorf("fetch leaderboard: %w", err)
 	}
@@ -102,32 +122,53 @@ func (c *Crawler) SyncLeaderboard() error {
 	return nil
 }
 
-// SyncPortfolios 获取所有Trader的 accountValueHistory 和 pnlHistory
+// SyncPortfolios 并发获取所有Trader的 accountValueHistory 和 pnlHistory
 func (c *Crawler) SyncPortfolios() error {
 	var traders []model.Trader
 	if err := c.db.Select("address").Find(&traders).Error; err != nil {
 		return fmt.Errorf("load traders: %w", err)
 	}
-	zap.S().Infof("[crawler] syncing portfolios for %d traders", len(traders))
+	zap.S().Infof("[crawler] syncing portfolios for %d traders with %d workers", len(traders), c.workers)
 
-	for i, trader := range traders {
-		if err := c.syncOnePortfolio(trader.Address); err != nil {
-			zap.S().Warnf("[crawler] portfolio error for %s: %v", trader.Address, err)
-			continue
-		}
-		if (i+1)%100 == 0 {
-			zap.S().Infof("[crawler] portfolio progress: %d/%d", i+1, len(traders))
-		}
-		// 限速：避免被封
-		time.Sleep(200 * time.Millisecond)
+	addrCh := make(chan string, len(traders))
+	for _, t := range traders {
+		addrCh <- t.Address
+	}
+	close(addrCh)
+
+	var (
+		wg   sync.WaitGroup
+		done atomic.Int64
+		total = int64(len(traders))
+	)
+
+	for i := 0; i < c.workers; i++ {
+		wg.Add(1)
+		go func(workerIdx int) {
+			defer wg.Done()
+			client := c.newClient(workerIdx)
+			for address := range addrCh {
+				if err := c.syncOnePortfolio(client, address); err != nil {
+					zap.S().Warnf("[crawler] portfolio error for %s: %v", address, err)
+				}
+				cur := done.Add(1)
+				if cur%100 == 0 || cur == total {
+					zap.S().Infof("[crawler] portfolio progress: %d/%d", cur, total)
+				}
+				if c.delay > 0 {
+					time.Sleep(c.delay)
+				}
+			}
+		}(i)
 	}
 
+	wg.Wait()
 	zap.S().Info("[crawler] portfolio sync done")
 	return nil
 }
 
-func (c *Crawler) syncOnePortfolio(address string) error {
-	resp, err := c.client.FetchPortfolio(address)
+func (c *Crawler) syncOnePortfolio(client *hyperliquid.Client, address string) error {
+	resp, err := client.FetchPortfolio(address)
 	if err != nil {
 		return err
 	}

@@ -17,6 +17,7 @@ import (
 func main() {
 	workers := flag.Int("workers", 10, "并发 worker 数量")
 	delay := flag.Duration("delay", 200*time.Millisecond, "每次 API 请求间隔")
+	useProxy := flag.Bool("proxy", false, "是否启用代理池")
 	flag.Parse()
 
 	_, cleanup, err := logger.Init("fills")
@@ -33,11 +34,16 @@ func main() {
 		zap.S().Fatalf("postgres: %v", err)
 	}
 
-	proxyMgr, err := proxy.NewManager(db)
-	if err != nil {
-		zap.S().Fatalf("proxy manager: %v", err)
+	var proxyMgr *proxy.Manager
+	if *useProxy {
+		proxyMgr, err = proxy.NewManager(db)
+		if err != nil {
+			zap.S().Fatalf("proxy manager: %v", err)
+		}
+		zap.S().Infof("[main] proxy enabled, %d proxies loaded, %d workers", proxyMgr.Count(), *workers)
+	} else {
+		zap.S().Infof("[main] proxy disabled, %d workers (direct connection)", *workers)
 	}
-	zap.S().Infof("[main] %d proxies loaded, %d workers", proxyMgr.Count(), *workers)
 
 	w := fills.NewWorker(db, proxyMgr, *workers, *delay)
 	if err := w.Run(); err != nil {
