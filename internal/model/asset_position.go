@@ -2,11 +2,11 @@ package model
 
 import "time"
 
-// NewPosition 新持仓表（new_position）
-type NewPosition struct {
+// TraderAssetPosition 交易员当前资产持仓表（asset_positions）
+type TraderAssetPosition struct {
 	ID                    uint      `gorm:"primaryKey;comment:主键ID"`
-	Address               string    `gorm:"type:varchar(42);not null;uniqueIndex:idx_new_pos_addr_coin;comment:钱包地址"`
-	Coin                  string    `gorm:"type:varchar(20);not null;uniqueIndex:idx_new_pos_addr_coin;comment:币种"`
+	Address               string    `gorm:"type:varchar(42);not null;uniqueIndex:idx_asset_pos_addr_coin;comment:钱包地址"`
+	Coin                  string    `gorm:"type:varchar(20);not null;uniqueIndex:idx_asset_pos_addr_coin;comment:币种"`
 	Szi                   string    `gorm:"type:numeric;not null;comment:仓位大小（正值为多头，负值为空头）"`
 	LeverageType          string    `gorm:"type:varchar(20);not null;comment:杠杆类型（cross/isolated）"`
 	Leverage              int       `gorm:"not null;comment:杠杆倍数"`
@@ -22,8 +22,4 @@ type NewPosition struct {
 	CumFundingSinceChange string    `gorm:"type:numeric;comment:累计资金费（最近变更以来）"`
 	CreatedAt             time.Time `gorm:"comment:创建时间"`
 	UpdatedAt             time.Time `gorm:"comment:更新时间"`
-}
-
-func (NewPosition) TableName() string {
-	return "new_position"
 }
