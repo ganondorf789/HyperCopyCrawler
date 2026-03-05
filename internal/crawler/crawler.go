@@ -78,7 +78,8 @@ func (c *Crawler) SyncLeaderboard() error {
 		traders := make([]model.Trader, 0, len(batch))
 		for _, row := range batch {
 			traders = append(traders, model.Trader{
-				Address: row.EthAddress,
+				Address:  row.EthAddress,
+				Username: row.DisplayName,
 			})
 		}
 		if err := c.db.Select("Address").Clauses(clause.OnConflict{
@@ -137,8 +138,8 @@ func (c *Crawler) SyncPortfolios() error {
 	close(addrCh)
 
 	var (
-		wg   sync.WaitGroup
-		done atomic.Int64
+		wg    sync.WaitGroup
+		done  atomic.Int64
 		total = int64(len(traders))
 	)
 
