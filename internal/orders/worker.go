@@ -146,7 +146,7 @@ func (w *Worker) saveOrders(address string, entries []model.OrderEntry) int {
 			end = len(records)
 		}
 		if err := w.db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "address"}, {Name: "coin"}, {Name: "oid"}, {Name: "timestamp"}},
+			Columns:   []clause.Column{{Name: "address"}, {Name: "oid"}},
 			DoNothing: true,
 		}).Create(records[i:end]).Error; err != nil {
 			zap.S().Warnf("[orders] save error for %s batch %d: %v", address[:10], i/batch, err)

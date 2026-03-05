@@ -170,7 +170,7 @@ func (w *Worker) saveFills(address string, fills []model.Fill) int {
 			end = len(records)
 		}
 		if err := w.db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "address"}, {Name: "coin"}, {Name: "time"}, {Name: "hash"}, {Name: "oid"}},
+			Columns:   []clause.Column{{Name: "address"}, {Name: "tid"}},
 			DoNothing: true,
 		}).Create(records[i:end]).Error; err != nil {
 			zap.S().Warnf("[fills] save error for %s batch %d: %v", address[:10], i/batch, err)

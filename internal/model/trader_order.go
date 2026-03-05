@@ -6,12 +6,12 @@ import "time"
 type TraderOrder struct {
 	ID               uint      `gorm:"primaryKey;comment:主键ID"`
 	Address          string    `gorm:"type:varchar(42);not null;index:idx_tord_addr_ts;uniqueIndex:uidx_order;comment:钱包地址"`
-	Coin             string    `gorm:"type:varchar(20);not null;uniqueIndex:uidx_order;comment:币种"`
+	Coin             string    `gorm:"type:varchar(20);not null;comment:币种"`
 	Side             string    `gorm:"type:varchar(2);not null;comment:买卖方向（A=卖/B=买）"`
 	LimitPx          string    `gorm:"type:numeric;not null;comment:限价"`
 	Sz               string    `gorm:"type:numeric;not null;comment:委托量"`
-	Oid              int64     `gorm:"not null;index;uniqueIndex:uidx_order;comment:订单ID"`
-	Timestamp        int64     `gorm:"not null;index:idx_tord_addr_ts;uniqueIndex:uidx_order;comment:委托时间（毫秒时间戳）"`
+	Oid              int64     `gorm:"not null;uniqueIndex:uidx_order;comment:订单ID"`
+	Timestamp        int64     `gorm:"not null;index:idx_tord_addr_ts;comment:委托时间（毫秒时间戳）"`
 	TriggerCondition string    `gorm:"type:varchar(20);not null;default:'N/A';comment:触发条件"`
 	IsTrigger        bool      `gorm:"not null;default:false;comment:是否触发订单"`
 	TriggerPx        string    `gorm:"type:numeric;comment:触发价"`
