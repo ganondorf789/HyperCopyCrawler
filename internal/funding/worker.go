@@ -101,12 +101,25 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 		return 0
 	}
 
-	entries := FetchAllFunding(client, address, startMs, endMs, w.delay)
-	if len(entries) == 0 {
-		return 0
+	total := 0
+	cur := time.UnixMilli(startMs).UTC()
+	end := time.UnixMilli(endMs).UTC()
+
+	for cur.Before(end) {
+		next := cur.AddDate(0, 1, 0)
+		if next.After(end) {
+			next = end
+		}
+
+		entries := FetchFundingForRange(client, address, cur.UnixMilli(), next.UnixMilli(), w.delay)
+		if len(entries) > 0 {
+			total += w.saveFunding(address, entries)
+		}
+
+		cur = next
 	}
 
-	return w.saveFunding(address, entries)
+	return total
 }
 
 func (w *Worker) saveFunding(address string, entries []model.FundingEntry) int {
@@ -116,10 +129,10 @@ func (w *Worker) saveFunding(address string, entries []model.FundingEntry) int {
 			Address:     address,
 			Time:        e.Time,
 			Hash:        e.Hash,
-			Coin:        e.Coin,
-			Usdc:        e.Usdc,
-			Szi:         e.Szi,
-			FundingRate: e.FundingRate,
+			Coin:        e.Delta.Coin,
+			Usdc:        e.Delta.Usdc,
+			Szi:         e.Delta.Szi,
+			FundingRate: e.Delta.FundingRate,
 		})
 	}
 

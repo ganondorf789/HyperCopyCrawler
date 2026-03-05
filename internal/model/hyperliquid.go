@@ -84,16 +84,20 @@ type FundingHistoryRequest struct {
 	EndTime   int64  `json:"endTime"`
 }
 
-// FundingEntry API 返回的资金费记录
+// FundingEntry API 返回的资金费记录（userFunding 接口）
 type FundingEntry struct {
-	Time        int64   `json:"time"`
-	Hash        string  `json:"hash"`
-	Type        string  `json:"type"`
-	Coin        string  `json:"coin"`
-	Usdc        string  `json:"usdc"`
-	Szi         string  `json:"szi"`
-	FundingRate string  `json:"fundingRate"`
-	NSamples    *int    `json:"nSamples"`
+	Time  int64        `json:"time"`
+	Hash  string       `json:"hash"`
+	Delta FundingDelta `json:"delta"`
+}
+
+type FundingDelta struct {
+	Type        string `json:"type"`
+	Coin        string `json:"coin"`
+	Usdc        string `json:"usdc"`
+	Szi         string `json:"szi"`
+	FundingRate string `json:"fundingRate"`
+	NSamples    *int   `json:"nSamples"`
 }
 
 // --- HistoricalOrders ---

@@ -145,7 +145,7 @@ func IsAtLimit(fills []model.Fill) bool {
 // FetchUserFundingHistory 按时间范围获取用户资金费记录
 func (c *Client) FetchUserFundingHistory(address string, startTimeMs, endTimeMs int64) ([]model.FundingEntry, error) {
 	payload, _ := json.Marshal(model.FundingHistoryRequest{
-		Type:      "userFundingHistory",
+		Type:      "userFunding",
 		User:      address,
 		StartTime: startTimeMs,
 		EndTime:   endTimeMs,
