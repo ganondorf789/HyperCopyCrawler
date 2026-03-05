@@ -18,7 +18,7 @@ type TraderFill struct {
 	Oid           int64     `gorm:"not null;uniqueIndex:uidx_fill;comment:订单ID"`
 	Crossed       bool      `gorm:"not null;default:false;comment:是否为全仓模式"`
 	Fee           string    `gorm:"type:numeric;comment:手续费"`
-	Tid           int64     `gorm:"not null;index;comment:成交ID"`
+	Tid           int64     `gorm:"not null;index;uniqueIndex:uidx_fill;comment:成交ID"`
 	Cloid         string    `gorm:"type:varchar(66);comment:客户端订单ID"`
 	FeeToken      string    `gorm:"type:varchar(10);comment:手续费计价币种"`
 	CreatedAt     time.Time `gorm:"comment:创建时间"`
