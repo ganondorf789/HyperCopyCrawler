@@ -40,12 +40,21 @@ type PortfolioRequest struct {
 	User string `json:"user"`
 }
 
-type PortfolioResponse struct {
-	AccountValueHistory []TimeSeriesEntry `json:"accountValueHistory"`
-	PnlHistory          []TimeSeriesEntry `json:"pnlHistory"`
+// PortfolioWindowEntry 是 [window_name, window_data] 的二元组
+type PortfolioWindowEntry [2]json.RawMessage
+
+type PortfolioWindowData struct {
+	AccountValueHistory []json.RawMessage `json:"accountValueHistory"`
+	PnlHistory          []json.RawMessage `json:"pnlHistory"`
 }
 
-type TimeSeriesEntry = json.RawMessage
+func (pe PortfolioWindowEntry) Parse() (window string, data PortfolioWindowData, err error) {
+	if err = json.Unmarshal(pe[0], &window); err != nil {
+		return
+	}
+	err = json.Unmarshal(pe[1], &data)
+	return
+}
 
 // --- UserFillsByTime ---
 

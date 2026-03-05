@@ -75,7 +75,7 @@ func (c *Client) FetchLeaderboard() (*model.LeaderboardResponse, error) {
 
 // --- Portfolio (accountValueHistory + pnlHistory) ---
 
-func (c *Client) FetchPortfolio(address string) (*model.PortfolioResponse, error) {
+func (c *Client) FetchPortfolio(address string) ([]model.PortfolioWindowEntry, error) {
 	payload, _ := json.Marshal(model.PortfolioRequest{
 		Type: "portfolio",
 		User: address,
@@ -92,11 +92,11 @@ func (c *Client) FetchPortfolio(address string) (*model.PortfolioResponse, error
 		return nil, fmt.Errorf("read portfolio body: %w", err)
 	}
 
-	var result model.PortfolioResponse
+	var result []model.PortfolioWindowEntry
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("unmarshal portfolio for %s: %w", address, err)
 	}
-	return &result, nil
+	return result, nil
 }
 
 // --- UserFillsByTime ---

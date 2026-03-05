@@ -169,40 +169,46 @@ func (c *Crawler) SyncPortfolios() error {
 }
 
 func (c *Crawler) syncOnePortfolio(client *hyperliquid.Client, address string) error {
-	resp, err := client.FetchPortfolio(address)
+	entries, err := client.FetchPortfolio(address)
 	if err != nil {
 		return err
 	}
 
-	// 保存 pnlHistory -> trader_pnl_histories
-	if len(resp.PnlHistory) > 0 {
-		historyJSON, _ := json.Marshal(resp.PnlHistory)
-		record := model.TraderPnlHistory{
-			Address: address,
-			Window:  "allTime",
-			History: historyJSON,
+	for _, entry := range entries {
+		window, data, err := entry.Parse()
+		if err != nil {
+			zap.S().Warnf("[crawler] parse portfolio window for %s: %v", address, err)
+			continue
 		}
-		if err := c.db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "address"}, {Name: "window"}},
-			DoUpdates: clause.AssignmentColumns([]string{"history", "updated_at"}),
-		}).Create(&record).Error; err != nil {
-			return fmt.Errorf("upsert pnl history: %w", err)
-		}
-	}
 
-	// 保存 accountValueHistory -> trader_account_values
-	if len(resp.AccountValueHistory) > 0 {
-		historyJSON, _ := json.Marshal(resp.AccountValueHistory)
-		record := model.TraderAccountValue{
-			Address: address,
-			Window:  "allTime",
-			History: historyJSON,
+		if len(data.PnlHistory) > 0 {
+			historyJSON, _ := json.Marshal(data.PnlHistory)
+			record := model.TraderPnlHistory{
+				Address: address,
+				Window:  window,
+				History: historyJSON,
+			}
+			if err := c.db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "address"}, {Name: "window"}},
+				DoUpdates: clause.AssignmentColumns([]string{"history", "updated_at"}),
+			}).Create(&record).Error; err != nil {
+				return fmt.Errorf("upsert pnl history (%s): %w", window, err)
+			}
 		}
-		if err := c.db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "address"}, {Name: "window"}},
-			DoUpdates: clause.AssignmentColumns([]string{"history", "updated_at"}),
-		}).Create(&record).Error; err != nil {
-			return fmt.Errorf("upsert account value: %w", err)
+
+		if len(data.AccountValueHistory) > 0 {
+			historyJSON, _ := json.Marshal(data.AccountValueHistory)
+			record := model.TraderAccountValue{
+				Address: address,
+				Window:  window,
+				History: historyJSON,
+			}
+			if err := c.db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "address"}, {Name: "window"}},
+				DoUpdates: clause.AssignmentColumns([]string{"history", "updated_at"}),
+			}).Create(&record).Error; err != nil {
+				return fmt.Errorf("upsert account value (%s): %w", window, err)
+			}
 		}
 	}
 
