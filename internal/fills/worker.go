@@ -86,11 +86,9 @@ func (w *Worker) worker(workerIdx int, addrCh <-chan string, done, saved *atomic
 }
 
 func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
-	// 查询该交易员已有的最新 fill 时间
 	var latestFill model.TraderFill
 	startMs := defaultStart.UnixMilli()
 	if err := w.db.Where("address = ?", address).Order("time DESC").First(&latestFill).Error; err == nil {
-		// 从最新记录之后开始（+1ms 避免重复）
 		startMs = latestFill.Time + 1
 	}
 
@@ -99,20 +97,39 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 		return 0
 	}
 
-	fills := FetchAllFills(client, address, startMs, endMs, w.delay)
-	if len(fills) == 0 {
+	fills, exceedErr := FetchAllFills(client, address, startMs, endMs, w.delay)
+	if len(fills) == 0 && exceedErr == nil {
 		return 0
 	}
 
-	// 批量写入数据库
-	n := w.saveFills(address, fills)
+	n := 0
+	if len(fills) > 0 {
+		n = w.saveFills(address, fills)
+	}
 
-	// 重建 completed trades
+	if exceedErr != nil {
+		zap.S().Warnf("[fills] %s: exceeded limit at 30s granularity, skipping trader. %v", address[:10], exceedErr)
+		w.recordFailure(address, exceedErr)
+		return n
+	}
+
 	if err := BuildCompletedTrades(w.db, address); err != nil {
 		zap.S().Warnf("[fills] rebuild trades error for %s: %v", address[:10], err)
 	}
 
 	return n
+}
+
+func (w *Worker) recordFailure(address string, e *ExceedsLimitErr) {
+	failure := model.FillFetchFailure{
+		Address:   address,
+		StartMs:   e.StartMs,
+		EndMs:     e.EndMs,
+		FillCount: e.Count,
+	}
+	if err := w.db.Create(&failure).Error; err != nil {
+		zap.S().Warnf("[fills] failed to record fetch failure for %s: %v", address[:10], err)
+	}
 }
 
 func (w *Worker) saveFills(address string, fills []model.Fill) int {

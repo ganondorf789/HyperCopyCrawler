@@ -58,6 +58,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.Leaderboard{},
 		&model.SystemSetting{},
 		&model.TraderStatistic{},
+		&model.FillFetchFailure{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
@@ -93,6 +94,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"leaderboard":           "排行榜表",
 		"system_setting":        "系统设置表",
 		"trader_statistics":     "交易员统计指标表（按时间窗口聚合）",
+		"fill_fetch_failures":   "成交记录获取失败表（30秒窗口仍超限）",
 	}
 	for table, comment := range tableComments {
 		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {
