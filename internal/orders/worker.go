@@ -101,12 +101,34 @@ func (w *Worker) processOne(client *hyperliquid.Client, address string) int {
 		return 0
 	}
 
-	entries := FetchAllOrders(client, address, startMs, endMs, w.delay)
-	if len(entries) == 0 {
+	entries, exceedErr := FetchAllOrders(client, address, startMs, endMs, w.delay)
+	if len(entries) == 0 && exceedErr == nil {
 		return 0
 	}
 
-	return w.saveOrders(address, entries)
+	n := 0
+	if len(entries) > 0 {
+		n = w.saveOrders(address, entries)
+	}
+
+	if exceedErr != nil {
+		zap.S().Warnf("[orders] %s: exceeded limit at 30s granularity, skipping trader. %v", address[:10], exceedErr)
+		w.recordFailure(address, exceedErr)
+	}
+
+	return n
+}
+
+func (w *Worker) recordFailure(address string, e *ExceedsLimitErr) {
+	failure := model.OrderFetchFailure{
+		Address:    address,
+		StartMs:    e.StartMs,
+		EndMs:      e.EndMs,
+		OrderCount: e.Count,
+	}
+	if err := w.db.Create(&failure).Error; err != nil {
+		zap.S().Warnf("[orders] failed to record fetch failure for %s: %v", address[:10], err)
+	}
 }
 
 func (w *Worker) saveOrders(address string, entries []model.OrderEntry) int {
