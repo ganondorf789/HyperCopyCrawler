@@ -61,6 +61,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.FetchFailure{},
 		&model.HotCoin{},
 		&model.CopyTradeRecord{},
+		&model.CopiedPosition{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
@@ -79,7 +80,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"trader_positions":      "交易员当前持仓表",
 		"user":                  "用户表",
 		"admin":                 "后台管理员表",
-		"copy_trading":          "跟单交易配置表",
+		"copyTradeConfig":       "跟单交易配置表",
 		"wallet":                "钱包表",
 		"my_track_wallet":       "跟踪钱包表",
 		"position":              "持仓表",
@@ -99,6 +100,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"fetch_failures": "数据获取失败表（最细粒度窗口仍超限，含 fills/orders/funding 类型）",
 		"hot_coin":          "热门币种表（按持仓交易员数量排名）",
 		"copy_trade_record": "跟单记录表（每笔跟单操作的执行明细）",
+		"copy_trading":          "跟单持仓表（copyTradeConfig配置+trader_position部分字段+执行/订单状态）",
 	}
 	for table, comment := range tableComments {
 		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {
