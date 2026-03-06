@@ -59,6 +59,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.SystemSetting{},
 		&model.TraderStatistic{},
 		&model.FetchFailure{},
+		&model.HotCoin{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
@@ -95,6 +96,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"system_setting":        "系统设置表",
 		"trader_statistics":     "交易员统计指标表（按时间窗口聚合）",
 		"fetch_failures": "数据获取失败表（最细粒度窗口仍超限，含 fills/orders/funding 类型）",
+		"hot_coin":       "热门币种表（按持仓交易员数量排名）",
 	}
 	for table, comment := range tableComments {
 		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {
