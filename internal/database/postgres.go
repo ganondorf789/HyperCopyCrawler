@@ -80,7 +80,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"trader_positions":      "交易员当前持仓表",
 		"user":                  "用户表",
 		"admin":                 "后台管理员表",
-		"copyTradeConfig":       "跟单交易配置表",
+		"copy_trade_config":     "跟单交易配置表",
 		"wallet":                "钱包表",
 		"my_track_wallet":       "跟踪钱包表",
 		"position":              "持仓表",
@@ -97,9 +97,9 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"leaderboard":           "排行榜表",
 		"system_setting":        "系统设置表",
 		"trader_statistics":     "交易员统计指标表（按时间窗口聚合）",
-		"fetch_failures": "数据获取失败表（最细粒度窗口仍超限，含 fills/orders/funding 类型）",
-		"hot_coin":          "热门币种表（按持仓交易员数量排名）",
-		"copy_trade_record": "跟单记录表（每笔跟单操作的执行明细）",
+		"fetch_failures":        "数据获取失败表（最细粒度窗口仍超限，含 fills/orders/funding 类型）",
+		"hot_coin":              "热门币种表（按持仓交易员数量排名）",
+		"copy_trade_record":     "跟单记录表（每笔跟单操作的执行明细）",
 		"copy_trading":          "跟单持仓表（copyTradeConfig配置+trader_position部分字段+执行/订单状态）",
 	}
 	for table, comment := range tableComments {
