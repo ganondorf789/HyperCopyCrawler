@@ -6,7 +6,7 @@ import (
 	"github.com/lib/pq"
 )
 
-type CopyTrading struct {
+type CopyTradingConfig struct {
 	ID                             int64          `gorm:"primaryKey;comment:主键ID" json:"id"`
 	UserID                         int64          `gorm:"not null;default:0;index:idx_copy_trading_user_id;comment:所属用户ID" json:"user_id"`
 	TargetWallet                   string         `gorm:"type:varchar(255);not null;default:'';comment:目标钱包地址" json:"target_wallet"`
@@ -48,6 +48,6 @@ type CopyTrading struct {
 	UpdatedAt                      time.Time      `gorm:"not null;default:now();comment:更新时间" json:"updated_at"`
 }
 
-func (CopyTrading) TableName() string {
+func (CopyTradingConfig) TableName() string {
 	return "copy_trade_config"
 }

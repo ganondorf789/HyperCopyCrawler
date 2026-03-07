@@ -6,21 +6,21 @@ import (
 	"github.com/lib/pq"
 )
 
-// CopiedPosition 状态
+// CopyTrading 状态
 const (
-	CopiedPositionStatusNotStarted = "NOT_STARTED"
-	CopiedPositionStatusFollowing  = "FOLLOWING"
-	CopiedPositionStatusStopped    = "STOPPED"
-	CopiedPositionStatusEnded      = "ENDED"
-	CopiedPositionStatusFailed     = "FAILED"
+	CopyTradingStatusNotStarted = "NOT_STARTED"
+	CopyTradingStatusFollowing  = "FOLLOWING"
+	CopyTradingStatusStopped    = "STOPPED"
+	CopyTradingStatusEnded      = "ENDED"
+	CopyTradingStatusFailed     = "FAILED"
 )
 
-// CopiedPosition 跟单持仓表（copy_trading）
+// CopyTrading 跟单持仓表（copy_trading）
 //
 // 基于 copyTradeConfig 配置 + trader_position 部分字段，记录每笔跟单持仓的执行状态
 //
 // Status 状态：NOT_STARTED=未开始 FOLLOWING=跟单中 STOPPED=已停止 ENDED=已结束 FAILED=失败
-type CopiedPosition struct {
+type CopyTrading struct {
 	ID int64 `gorm:"primaryKey;comment:主键ID" json:"id"`
 
 	// ========== copyTradeConfig 全部字段 ==========
@@ -82,6 +82,6 @@ type CopiedPosition struct {
 	UpdatedAt time.Time `gorm:"not null;default:now();comment:更新时间" json:"updated_at"`
 }
 
-func (CopiedPosition) TableName() string {
+func (CopyTrading) TableName() string {
 	return "copy_trading"
 }

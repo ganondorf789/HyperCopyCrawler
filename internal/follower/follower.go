@@ -344,7 +344,7 @@ func (f *Follower) notifyTrackWallets(ctx context.Context, addr string, fill *mo
 // ---------- copy trading ----------
 
 func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *model.Fill, action string) {
-	var configs []model.CopyTrading
+	var configs []model.CopyTradingConfig
 	if err := f.db.Where("target_wallet = ? AND follow_type = 1 AND status = 1", addr).
 		Find(&configs).Error; err != nil {
 		zap.S().Errorf("[follower] query copy configs: %v", err)
@@ -371,9 +371,9 @@ func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *mo
 		// follow-once: skip if active position already exists
 		if cfg.FollowOnce == 1 {
 			var cnt int64
-			f.db.Model(&model.CopiedPosition{}).
+			f.db.Model(&model.CopyTrading{}).
 				Where("copy_trading_id = ? AND status IN ?", cfg.ID,
-					[]string{model.CopiedPositionStatusNotStarted, model.CopiedPositionStatusFollowing}).
+					[]string{model.CopyTradingStatusNotStarted, model.CopyTradingStatusFollowing}).
 				Count(&cnt)
 			if cnt > 0 {
 				continue
@@ -383,7 +383,7 @@ func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *mo
 		traderSzi := utility.CalcResultSzi(fill.StartPosition, fill.Sz, fill.Side)
 		posValue := utility.MulStr(fill.Px, fill.Sz)
 
-		cp := model.CopiedPosition{
+		cp := model.CopyTrading{
 			CopyTradingID:                  cfg.ID,
 			UserID:                         cfg.UserID,
 			TargetWallet:                   cfg.TargetWallet,
@@ -428,7 +428,7 @@ func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *mo
 			TraderSzi:                      traderSzi,
 			TraderEntryPx:                  fill.Px,
 			TraderPositionValue:            posValue,
-			Status:                         model.CopiedPositionStatusNotStarted,
+			Status:                         model.CopyTradingStatusNotStarted,
 		}
 
 		if err := f.db.Create(&cp).Error; err != nil {
@@ -443,7 +443,7 @@ func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *mo
 	}
 }
 
-func (f *Follower) saveRecord(cfg model.CopyTrading, fill *model.Fill, execStatus int, errMsg string) {
+func (f *Follower) saveRecord(cfg model.CopyTradingConfig, fill *model.Fill, execStatus int, errMsg string) {
 	r := model.CopyTradeRecord{
 		UserID:        cfg.UserID,
 		Address:       cfg.TargetWallet,

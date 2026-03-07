@@ -41,7 +41,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.TraderPosition{},
 		&model.User{},
 		&model.Admin{},
-		&model.CopyTrading{},
+		&model.CopyTradingConfig{},
 		&model.Wallet{},
 		&model.MyTrackWallet{},
 		&model.UserPosition{},
@@ -61,7 +61,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.FetchFailure{},
 		&model.HotCoin{},
 		&model.CopyTradeRecord{},
-		&model.CopiedPosition{},
+		&model.CopyTrading{},
 		&model.Server{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
