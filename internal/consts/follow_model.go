@@ -3,13 +3,17 @@ package consts
 // -------- FollowModel 跟单模式（copy_trade_config.follow_model）--------
 
 const (
-	// FollowModelAssetProportional 资产等比：根据目标地址使用了多少本金比例，
-	// 结合跟单钱包资金来下单（例如：目标用了总资金的 10%，跟单也用钱包资金的 10%）。
-	// FollowModelValue 为倍率，1.0 = 同比例。
+	// FollowModelAssetProportional 资产等比：根据目标使用了多少本金比例，
+	// 按相同比例使用跟单钱包资金下单。
+	// FollowModelValue 为跟单比例百分比：
+	//   100 = 与目标一致（目标用 10% 资产 → 跟单也用 10%）
+	//    50 = 一半力度（目标用 10% 资产 → 跟单用 5%）
 	FollowModelAssetProportional = 1
 
-	// FollowModelPositionProportional 仓位等比：忽略本金差异，直接跟随目标地址的仓位变化比例下单。
-	// FollowModelValue 为倍率，1.0 = 同等仓位。
+	// FollowModelPositionProportional 仓位等比：忽略本金差异，直接跟随目标仓位变化金额下单。
+	// FollowModelValue 为跟单比例百分比：
+	//   100 = 与目标一致（目标开仓 $100 → 跟单 $100）
+	//    50 = 一半力度（目标开仓 $100 → 跟单 $50）
 	FollowModelPositionProportional = 2
 
 	// FollowModelFixedValue 固定价值：每次开仓固定投入 FollowModelValue（USD），

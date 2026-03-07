@@ -396,21 +396,21 @@ func (f *Follower) executeCopyOrder(ctx context.Context, cfg model.CopyTradingCo
 	if err := f.db.Where("user_id = ? AND address = ? AND status = 1", cfg.UserID, cfg.MainWallet).
 		First(&wallet).Error; err != nil {
 		zap.S().Warnf("[follower] wallet not found: user=%d addr=%s: %v", cfg.UserID, utility.AbbrWithEllipsis(cfg.MainWallet), err)
-		f.saveRecord(cfg, fill, 3, "wallet not found")
+		f.saveRecord(cfg, fill, consts.ExecStatusSkipped, "wallet not found")
 		return
 	}
 
 	isBuy, orderSize, orderPrice, reduceOnly, err := f.calcOrderParams(ctx, cfg, &wallet, addr, fill, action)
 	if err != nil {
 		zap.S().Warnf("[follower] calc order: user=%d cfg=%d: %v", cfg.UserID, cfg.ID, err)
-		f.saveRecord(cfg, fill, 3, err.Error())
+		f.saveRecord(cfg, fill, consts.ExecStatusSkipped, err.Error())
 		return
 	}
 
 	exchange, err := f.newExchange(ctx, &wallet)
 	if err != nil {
 		zap.S().Errorf("[follower] exchange init: user=%d: %v", cfg.UserID, err)
-		f.saveRecord(cfg, fill, 2, err.Error())
+		f.saveRecord(cfg, fill, consts.ExecStatusFailed, err.Error())
 		return
 	}
 
@@ -429,19 +429,19 @@ func (f *Follower) executeCopyOrder(ctx context.Context, cfg model.CopyTradingCo
 	if err != nil {
 		zap.S().Errorf("[follower] order failed: user=%d cfg=%d %s %.6f %s@%.2f: %v",
 			cfg.UserID, cfg.ID, fill.Coin, orderSize, boolToSide(isBuy), orderPrice, err)
-		f.saveCopyTradingAndRecord(cfg, addr, fill, action, model.CopyTradingStatusFailed, 2, err.Error())
+		f.saveCopyTradingAndRecord(cfg, addr, fill, action, model.CopyTradingStatusFailed, consts.ExecStatusFailed, err.Error())
 		return
 	}
 
 	if status.Error != nil {
 		zap.S().Errorf("[follower] order rejected: user=%d cfg=%d: %s", cfg.UserID, cfg.ID, *status.Error)
-		f.saveCopyTradingAndRecord(cfg, addr, fill, action, model.CopyTradingStatusFailed, 2, *status.Error)
+		f.saveCopyTradingAndRecord(cfg, addr, fill, action, model.CopyTradingStatusFailed, consts.ExecStatusFailed, *status.Error)
 		return
 	}
 
 	zap.S().Infof("[follower] order placed: user=%d cfg=%d %s %.6f %s@%.2f",
 		cfg.UserID, cfg.ID, fill.Coin, orderSize, boolToSide(isBuy), orderPrice)
-	f.saveCopyTradingAndRecord(cfg, addr, fill, action, model.CopyTradingStatusFollowing, 1, "")
+	f.saveCopyTradingAndRecord(cfg, addr, fill, action, model.CopyTradingStatusFollowing, consts.ExecStatusSuccess, "")
 }
 
 func (f *Follower) newExchange(ctx context.Context, w *model.Wallet) (*hyperliquid.Exchange, error) {
@@ -484,13 +484,15 @@ func (f *Follower) calcOrderParams(ctx context.Context, cfg model.CopyTradingCon
 
 	switch cfg.FollowModel {
 	case consts.FollowModelAssetProportional:
-		orderSize, err = f.calcAssetProportional(ctx, traderAddr, wallet.Address, px, fillSz, modelValue)
+		ratio := modelValue / 100
+		orderSize, err = f.calcAssetProportional(ctx, traderAddr, wallet.Address, px, fillSz, ratio)
 		if err != nil {
 			return false, 0, 0, false, err
 		}
 
 	case consts.FollowModelPositionProportional:
-		orderSize = fillSz * modelValue
+		ratio := modelValue / 100
+		orderSize = fillSz * ratio
 
 	case consts.FollowModelFixedValue:
 		if isFollowUp && math.Abs(startPos) > 0 {
