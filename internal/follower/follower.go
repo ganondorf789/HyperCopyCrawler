@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hypercopy/crawler/internal/consts"
 	"github.com/hypercopy/crawler/internal/model"
+	"github.com/hypercopy/crawler/internal/utility"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -278,7 +279,7 @@ func (f *Follower) handleFills(ctx context.Context, data json.RawMessage) {
 // classifyAction returns consts.NotifyAction* (开仓/平仓/加仓/减仓)
 func classifyAction(fill *model.Fill) string {
 	isOpen := strings.HasPrefix(fill.Dir, "Open")
-	startAbs := new(big.Float).Abs(parseBigFloat(fill.StartPosition))
+	startAbs := new(big.Float).Abs(utility.ParseBigFloatOr0(fill.StartPosition))
 
 	if isOpen {
 		if startAbs.Sign() == 0 {
@@ -287,7 +288,7 @@ func classifyAction(fill *model.Fill) string {
 		return consts.NotifyActionIncrease
 	}
 
-	if parseBigFloat(fill.Sz).Cmp(startAbs) >= 0 {
+	if utility.ParseBigFloatOr0(fill.Sz).Cmp(startAbs) >= 0 {
 		return consts.NotifyActionClose
 	}
 	return consts.NotifyActionDecrease
@@ -336,7 +337,7 @@ func (f *Follower) notifyTrackWallets(ctx context.Context, addr string, fill *mo
 		zap.S().Errorf("[follower] publish notify: %v", err)
 	} else {
 		zap.S().Infof("[follower] notified %d users %s %s %s %s@%s",
-			len(users), abbr(addr), fill.Dir, fill.Sz, fill.Coin, fill.Px)
+			len(users), utility.AbbrWithEllipsis(addr), fill.Dir, fill.Sz, fill.Coin, fill.Px)
 	}
 }
 
@@ -351,7 +352,7 @@ func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *mo
 	}
 
 	for _, cfg := range configs {
-		if !symbolAllowed(cfg, fill.Coin) {
+		if !utility.SymbolAllowed(cfg.SymbolList, cfg.SymbolListType, fill.Coin) {
 			continue
 		}
 		if cfg.FollowSymbol != "" && cfg.FollowSymbol != fill.Coin {
@@ -379,8 +380,8 @@ func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *mo
 			}
 		}
 
-		traderSzi := calcResultSzi(fill)
-		posValue := mulStr(fill.Px, fill.Sz)
+		traderSzi := utility.CalcResultSzi(fill.StartPosition, fill.Sz, fill.Side)
+		posValue := utility.MulStr(fill.Px, fill.Sz)
 
 		cp := model.CopiedPosition{
 			CopyTradingID:                  cfg.ID,
@@ -460,55 +461,3 @@ func (f *Follower) saveRecord(cfg model.CopyTrading, fill *model.Fill, execStatu
 	}
 }
 
-// ---------- helpers ----------
-
-// calcResultSzi computes the trader's resulting position after the fill:
-// Buy (B): startPosition + sz, Sell (A): startPosition - sz
-func calcResultSzi(fill *model.Fill) string {
-	start := parseBigFloat(fill.StartPosition)
-	sz := parseBigFloat(fill.Sz)
-
-	var result *big.Float
-	if fill.Side == "B" {
-		result = new(big.Float).Add(start, sz)
-	} else {
-		result = new(big.Float).Sub(start, sz)
-	}
-	return result.Text('f', 8)
-}
-
-func mulStr(a, b string) string {
-	return new(big.Float).Mul(parseBigFloat(a), parseBigFloat(b)).Text('f', 8)
-}
-
-func parseBigFloat(s string) *big.Float {
-	if s == "" {
-		return new(big.Float)
-	}
-	f, _, _ := new(big.Float).Parse(s, 10)
-	if f == nil {
-		return new(big.Float)
-	}
-	return f
-}
-
-func symbolAllowed(cfg model.CopyTrading, coin string) bool {
-	if cfg.SymbolList == "" {
-		return true
-	}
-	set := make(map[string]bool)
-	for _, s := range strings.Split(cfg.SymbolList, ",") {
-		set[strings.TrimSpace(s)] = true
-	}
-	if cfg.SymbolListType == "WHITE" {
-		return set[coin]
-	}
-	return !set[coin]
-}
-
-func abbr(s string) string {
-	if len(s) > 10 {
-		return s[:10] + "…"
-	}
-	return s
-}
