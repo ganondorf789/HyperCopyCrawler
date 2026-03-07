@@ -6,17 +6,20 @@ import (
 	"github.com/lib/pq"
 )
 
+// CopiedPosition 状态
+const (
+	CopiedPositionStatusNotStarted = "NOT_STARTED"
+	CopiedPositionStatusFollowing  = "FOLLOWING"
+	CopiedPositionStatusStopped    = "STOPPED"
+	CopiedPositionStatusEnded      = "ENDED"
+	CopiedPositionStatusFailed     = "FAILED"
+)
+
 // CopiedPosition 跟单持仓表（copy_trading）
 //
 // 基于 copyTradeConfig 配置 + trader_position 部分字段，记录每笔跟单持仓的执行状态
 //
-// ExecuteStatus 执行状态：
-//
-//	0=待执行 1=执行成功 2=执行失败 3=已跳过
-//
-// OrderStatus 订单状态（同步自交易所）：
-//
-//	open=挂单中 filled=已成交 canceled=已取消 triggered=已触发
+// Status 状态：NOT_STARTED=未开始 FOLLOWING=跟单中 STOPPED=已停止 ENDED=已结束 FAILED=失败
 type CopiedPosition struct {
 	ID int64 `gorm:"primaryKey;comment:主键ID" json:"id"`
 
@@ -71,10 +74,9 @@ type CopiedPosition struct {
 	TraderEntryPx   string `gorm:"type:numeric;not null;default:0;comment:入场价" json:"trader_entry_px"`
 	TraderPositionValue string `gorm:"type:numeric;not null;default:0;comment:持仓价值" json:"trader_position_value"`
 
-	// ========== 执行状态、订单状态 ==========
-	ExecuteStatus int    `gorm:"not null;default:0;index:idx_cp_execute_status;comment:执行状态 0:待执行 1:成功 2:失败 3:跳过" json:"execute_status"`
-	OrderStatus   string `gorm:"type:varchar(32);not null;default:'';comment:订单状态 open/filled/canceled/triggered" json:"order_status"`
-	ErrorMsg      string `gorm:"type:text;not null;default:'';comment:执行失败原因" json:"error_msg"`
+	// ========== 状态 ==========
+	Status   string `gorm:"type:varchar(32);not null;default:'NOT_STARTED';index:idx_cp_status;comment:状态 NOT_STARTED/FOLLOWING/STOPPED/ENDED/FAILED" json:"status"`
+	ErrorMsg string `gorm:"type:text;not null;default:'';comment:执行失败原因" json:"error_msg"`
 
 	CreatedAt time.Time `gorm:"not null;default:now();comment:创建时间" json:"created_at"`
 	UpdatedAt time.Time `gorm:"not null;default:now();comment:更新时间" json:"updated_at"`
