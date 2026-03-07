@@ -62,6 +62,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		&model.HotCoin{},
 		&model.CopyTradeRecord{},
 		&model.CopiedPosition{},
+		&model.Server{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
@@ -101,6 +102,7 @@ func NewPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		"hot_coin":              "热门币种表（按持仓交易员数量排名）",
 		"copy_trade_record":     "跟单记录表（每笔跟单操作的执行明细）",
 		"copy_trading":          "跟单持仓表（copyTradeConfig配置+trader_position部分字段+执行/订单状态）",
+		"server_management":     "服务器管理表（IP、用户名、密码）",
 	}
 	for table, comment := range tableComments {
 		if err := db.Exec("COMMENT ON TABLE " + table + " IS '" + comment + "'").Error; err != nil {
