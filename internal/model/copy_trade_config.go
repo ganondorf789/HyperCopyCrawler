@@ -27,7 +27,7 @@ type CopyTradingConfig struct {
 	FollowSymbol                   string         `gorm:"type:varchar(64);not null;default:'';comment:跟单币种" json:"follow_symbol"`
 	Leverage                       int            `gorm:"not null;default:1;comment:杠杆倍数" json:"leverage"`
 	MarginMode                     int            `gorm:"not null;default:1;comment:保证金模式 1:逐仓 2:全仓" json:"margin_mode"`
-	FollowModel                    int            `gorm:"not null;default:1;comment:跟单模式 1:固定金额 2:固定比例" json:"follow_model"`
+	FollowModel                    int            `gorm:"not null;default:1;comment:跟单模式 1:资产等比 2:仓位等比 3:固定价值" json:"follow_model"`
 	FollowModelValue               string         `gorm:"type:numeric(20,8);not null;default:0;comment:跟单模式值" json:"follow_model_value"`
 	MinValue                       string         `gorm:"type:numeric(20,8);not null;default:0;comment:最小下单金额" json:"min_value"`
 	MaxValue                       string         `gorm:"type:numeric(20,8);not null;default:0;comment:最大下单金额" json:"max_value"`

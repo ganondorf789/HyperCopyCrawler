@@ -4,16 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/websocket"
 	"github.com/hypercopy/crawler/internal/consts"
+	hlclient "github.com/hypercopy/crawler/internal/hyperliquid"
 	"github.com/hypercopy/crawler/internal/model"
 	"github.com/hypercopy/crawler/internal/utility"
 	"github.com/redis/go-redis/v9"
+	hyperliquid "github.com/sonirico/go-hyperliquid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -27,6 +32,8 @@ const (
 	reconnectBaseDelay = 3 * time.Second
 	reconnectMaxDelay  = 60 * time.Second
 	subscribeThrottle  = 10 * time.Millisecond
+
+	defaultSlippage = 0.005 // 0.5% market order slippage
 )
 
 type wsMsg struct {
@@ -77,6 +84,7 @@ type TrackWalletNotification struct {
 type Follower struct {
 	db       *gorm.DB
 	rdb      *redis.Client
+	hl       *hlclient.Client
 	serverIP string
 
 	mu    sync.RWMutex
@@ -90,6 +98,7 @@ func New(db *gorm.DB, rdb *redis.Client, serverIP string) *Follower {
 	return &Follower{
 		db:       db,
 		rdb:      rdb,
+		hl:       hlclient.NewClient(),
 		serverIP: serverIP,
 		addrs:    make(map[string]bool),
 	}
@@ -345,7 +354,7 @@ func (f *Follower) notifyTrackWallets(ctx context.Context, addr string, fill *mo
 
 func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *model.Fill, action string) {
 	var configs []model.CopyTradingConfig
-	if err := f.db.Where("target_wallet = ? AND follow_type = 1 AND status = 1", addr).
+	if err := f.db.Where("target_wallet = ? AND follow_type = ? AND status = 1", addr, consts.FollowTypeAuto).
 		Find(&configs).Error; err != nil {
 		zap.S().Errorf("[follower] query copy configs: %v", err)
 		return
@@ -359,11 +368,9 @@ func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *mo
 			continue
 		}
 
-		// skip 加仓 if not configured
 		if action == consts.NotifyActionIncrease && cfg.OptFollowupIncrease == 0 && cfg.OptPositionIncreaseOpening == 0 {
 			continue
 		}
-		// skip 减仓 if not configured
 		if action == consts.NotifyActionDecrease && cfg.OptFollowupDecrease == 0 {
 			continue
 		}
@@ -380,67 +387,254 @@ func (f *Follower) processCopyTrading(ctx context.Context, addr string, fill *mo
 			}
 		}
 
-		traderSzi := utility.CalcResultSzi(fill.StartPosition, fill.Sz, fill.Side)
-		posValue := utility.MulStr(fill.Px, fill.Sz)
-
-		cp := model.CopyTrading{
-			CopyTradingID:                  cfg.ID,
-			UserID:                         cfg.UserID,
-			TargetWallet:                   cfg.TargetWallet,
-			TargetWalletPlatform:           cfg.TargetWalletPlatform,
-			Remark:                         cfg.Remark,
-			FollowType:                     cfg.FollowType,
-			FollowOnce:                     cfg.FollowOnce,
-			PositionConditions:             cfg.PositionConditions,
-			TraderConditions:               cfg.TraderConditions,
-			TagAccountValue:                cfg.TagAccountValue,
-			TagProfitScale:                 cfg.TagProfitScale,
-			TagDirection:                   cfg.TagDirection,
-			TagTradingRhythm:               cfg.TagTradingRhythm,
-			TagProfitStatus:                cfg.TagProfitStatus,
-			TagTradingStyles:               cfg.TagTradingStyles,
-			TraderMetricPeriod:             cfg.TraderMetricPeriod,
-			FollowMarginMode:               cfg.FollowMarginMode,
-			FollowSymbol:                   cfg.FollowSymbol,
-			Leverage:                       cfg.Leverage,
-			MarginMode:                     cfg.MarginMode,
-			FollowModel:                    cfg.FollowModel,
-			FollowModelValue:               cfg.FollowModelValue,
-			MinValue:                       cfg.MinValue,
-			MaxValue:                       cfg.MaxValue,
-			MaxMarginUsage:                 cfg.MaxMarginUsage,
-			TpValue:                        cfg.TpValue,
-			SlValue:                        cfg.SlValue,
-			OptFollowupDecrease:            cfg.OptFollowupDecrease,
-			OptFollowupIncrease:            cfg.OptFollowupIncrease,
-			OptForcedLiquidationProtection: cfg.OptForcedLiquidationProtection,
-			OptPositionIncreaseOpening:     cfg.OptPositionIncreaseOpening,
-			OptSlippageProtection:          cfg.OptSlippageProtection,
-			SymbolListType:                 cfg.SymbolListType,
-			SymbolList:                     cfg.SymbolList,
-			MainWallet:                     cfg.MainWallet,
-			MainWalletPlatform:             cfg.MainWalletPlatform,
-			CopyTradingStatus:              cfg.Status,
-			CopyTradingCreatedAt:           cfg.CreatedAt,
-			CopyTradingUpdatedAt:           cfg.UpdatedAt,
-			TraderAddress:                  addr,
-			TraderCoin:                     fill.Coin,
-			TraderSzi:                      traderSzi,
-			TraderEntryPx:                  fill.Px,
-			TraderPositionValue:            posValue,
-			Status:                         model.CopyTradingStatusNotStarted,
-		}
-
-		if err := f.db.Create(&cp).Error; err != nil {
-			zap.S().Errorf("[follower] create copied position: %v", err)
-			f.saveRecord(cfg, fill, 2, err.Error())
-			continue
-		}
-
-		f.saveRecord(cfg, fill, 0, "")
-		zap.S().Infof("[follower] copy created: user=%d cfg=%d %s %s %s@%s",
-			cfg.UserID, cfg.ID, fill.Dir, fill.Sz, fill.Coin, fill.Px)
+		f.executeCopyOrder(ctx, cfg, addr, fill, action)
 	}
+}
+
+func (f *Follower) executeCopyOrder(ctx context.Context, cfg model.CopyTradingConfig, addr string, fill *model.Fill, action string) {
+	var wallet model.Wallet
+	if err := f.db.Where("user_id = ? AND address = ? AND status = 1", cfg.UserID, cfg.MainWallet).
+		First(&wallet).Error; err != nil {
+		zap.S().Warnf("[follower] wallet not found: user=%d addr=%s: %v", cfg.UserID, utility.AbbrWithEllipsis(cfg.MainWallet), err)
+		f.saveRecord(cfg, fill, 3, "wallet not found")
+		return
+	}
+
+	isBuy, orderSize, orderPrice, reduceOnly, err := f.calcOrderParams(ctx, cfg, &wallet, addr, fill, action)
+	if err != nil {
+		zap.S().Warnf("[follower] calc order: user=%d cfg=%d: %v", cfg.UserID, cfg.ID, err)
+		f.saveRecord(cfg, fill, 3, err.Error())
+		return
+	}
+
+	exchange, err := f.newExchange(ctx, &wallet)
+	if err != nil {
+		zap.S().Errorf("[follower] exchange init: user=%d: %v", cfg.UserID, err)
+		f.saveRecord(cfg, fill, 2, err.Error())
+		return
+	}
+
+	req := hyperliquid.CreateOrderRequest{
+		Coin:       fill.Coin,
+		IsBuy:      isBuy,
+		Price:      orderPrice,
+		Size:       orderSize,
+		ReduceOnly: reduceOnly,
+		OrderType: hyperliquid.OrderType{
+			Limit: &hyperliquid.LimitOrderType{Tif: hyperliquid.TifIoc},
+		},
+	}
+
+	status, err := exchange.Order(ctx, req, nil)
+	if err != nil {
+		zap.S().Errorf("[follower] order failed: user=%d cfg=%d %s %.6f %s@%.2f: %v",
+			cfg.UserID, cfg.ID, fill.Coin, orderSize, boolToSide(isBuy), orderPrice, err)
+		f.saveCopyTradingAndRecord(cfg, addr, fill, action, model.CopyTradingStatusFailed, 2, err.Error())
+		return
+	}
+
+	if status.Error != nil {
+		zap.S().Errorf("[follower] order rejected: user=%d cfg=%d: %s", cfg.UserID, cfg.ID, *status.Error)
+		f.saveCopyTradingAndRecord(cfg, addr, fill, action, model.CopyTradingStatusFailed, 2, *status.Error)
+		return
+	}
+
+	zap.S().Infof("[follower] order placed: user=%d cfg=%d %s %.6f %s@%.2f",
+		cfg.UserID, cfg.ID, fill.Coin, orderSize, boolToSide(isBuy), orderPrice)
+	f.saveCopyTradingAndRecord(cfg, addr, fill, action, model.CopyTradingStatusFollowing, 1, "")
+}
+
+func (f *Follower) newExchange(ctx context.Context, w *model.Wallet) (*hyperliquid.Exchange, error) {
+	privateKey, err := crypto.HexToECDSA(w.APISecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("invalid private key: %w", err)
+	}
+	return hyperliquid.NewExchange(
+		ctx,
+		privateKey,
+		hyperliquid.MainnetAPIURL,
+		nil,
+		"",
+		w.Address,
+		nil,
+		nil,
+	), nil
+}
+
+// calcOrderParams returns (isBuy, size, price, reduceOnly, error).
+func (f *Follower) calcOrderParams(ctx context.Context, cfg model.CopyTradingConfig, wallet *model.Wallet, traderAddr string, fill *model.Fill, action string) (bool, float64, float64, bool, error) {
+	px, err := strconv.ParseFloat(fill.Px, 64)
+	if err != nil || px <= 0 {
+		return false, 0, 0, false, fmt.Errorf("invalid fill price: %s", fill.Px)
+	}
+	fillSz, _ := strconv.ParseFloat(fill.Sz, 64)
+	startPos, _ := strconv.ParseFloat(fill.StartPosition, 64)
+
+	isClose := action == consts.NotifyActionClose || action == consts.NotifyActionDecrease
+	isFollowUp := action == consts.NotifyActionIncrease || action == consts.NotifyActionDecrease
+
+	isBuy := strings.Contains(fill.Dir, "Long")
+	if isClose {
+		isBuy = !isBuy
+	}
+
+	modelValue, _ := strconv.ParseFloat(cfg.FollowModelValue, 64)
+
+	var orderSize float64
+
+	switch cfg.FollowModel {
+	case consts.FollowModelAssetProportional:
+		orderSize, err = f.calcAssetProportional(ctx, traderAddr, wallet.Address, px, fillSz, modelValue)
+		if err != nil {
+			return false, 0, 0, false, err
+		}
+
+	case consts.FollowModelPositionProportional:
+		orderSize = fillSz * modelValue
+
+	case consts.FollowModelFixedValue:
+		if isFollowUp && math.Abs(startPos) > 0 {
+			posRatio := fillSz / math.Abs(startPos)
+			followerPos := f.getFollowerPositionSize(wallet.Address, fill.Coin)
+			orderSize = math.Abs(followerPos) * posRatio
+		} else {
+			orderSize = modelValue / px
+		}
+
+	default:
+		return false, 0, 0, false, fmt.Errorf("unsupported follow_model: %d", cfg.FollowModel)
+	}
+
+	orderValueUSD := orderSize * px
+	minVal, _ := strconv.ParseFloat(cfg.MinValue, 64)
+	maxVal, _ := strconv.ParseFloat(cfg.MaxValue, 64)
+
+	if minVal > 0 && orderValueUSD < minVal {
+		return false, 0, 0, false, fmt.Errorf("order value %.2f below min %.2f", orderValueUSD, minVal)
+	}
+	if maxVal > 0 && orderValueUSD > maxVal {
+		orderSize = maxVal / px
+	}
+
+	slippage := defaultSlippage
+	orderPrice := px
+	if isBuy {
+		orderPrice = px * (1 + slippage)
+	} else {
+		orderPrice = px * (1 - slippage)
+	}
+
+	orderPrice = math.Round(orderPrice*1e6) / 1e6
+	orderSize = math.Round(orderSize*1e6) / 1e6
+
+	if orderSize <= 0 {
+		return false, 0, 0, false, fmt.Errorf("calculated size is zero")
+	}
+
+	return isBuy, orderSize, orderPrice, isClose, nil
+}
+
+// calcAssetProportional: 资产等比 — 目标用了 X% 本金，跟单也用 X% 本金。
+func (f *Follower) calcAssetProportional(ctx context.Context, traderAddr, followerAddr string, px, fillSz, multiplier float64) (float64, error) {
+	traderState, err := f.hl.FetchClearinghouseState(traderAddr)
+	if err != nil {
+		return 0, fmt.Errorf("fetch trader state: %w", err)
+	}
+	traderAV, _ := strconv.ParseFloat(traderState.MarginSummary.AccountValue, 64)
+	if traderAV <= 0 {
+		return 0, fmt.Errorf("trader account value is zero")
+	}
+
+	followerState, err := f.hl.FetchClearinghouseState(followerAddr)
+	if err != nil {
+		return 0, fmt.Errorf("fetch follower state: %w", err)
+	}
+	followerAV, _ := strconv.ParseFloat(followerState.MarginSummary.AccountValue, 64)
+	if followerAV <= 0 {
+		return 0, fmt.Errorf("follower account value is zero")
+	}
+
+	traderOrderValue := px * fillSz
+	capitalRatio := traderOrderValue / traderAV
+	followerOrderValue := followerAV * capitalRatio * multiplier
+
+	return followerOrderValue / px, nil
+}
+
+// getFollowerPositionSize returns the follower's current position size for a coin (signed).
+func (f *Follower) getFollowerPositionSize(followerAddr, coin string) float64 {
+	state, err := f.hl.FetchClearinghouseState(followerAddr)
+	if err != nil {
+		zap.S().Warnf("[follower] fetch position for %s: %v", utility.AbbrWithEllipsis(followerAddr), err)
+		return 0
+	}
+	for _, ap := range state.AssetPositions {
+		if ap.Position.Coin == coin {
+			sz, _ := strconv.ParseFloat(ap.Position.Szi, 64)
+			return sz
+		}
+	}
+	return 0
+}
+
+func (f *Follower) saveCopyTradingAndRecord(cfg model.CopyTradingConfig, addr string, fill *model.Fill, action string, ctStatus string, execStatus int, errMsg string) {
+	traderSzi := utility.CalcResultSzi(fill.StartPosition, fill.Sz, fill.Side)
+	posValue := utility.MulStr(fill.Px, fill.Sz)
+
+	cp := model.CopyTrading{
+		CopyTradingID:                  cfg.ID,
+		UserID:                         cfg.UserID,
+		TargetWallet:                   cfg.TargetWallet,
+		TargetWalletPlatform:           cfg.TargetWalletPlatform,
+		Remark:                         cfg.Remark,
+		FollowType:                     cfg.FollowType,
+		FollowOnce:                     cfg.FollowOnce,
+		PositionConditions:             cfg.PositionConditions,
+		TraderConditions:               cfg.TraderConditions,
+		TagAccountValue:                cfg.TagAccountValue,
+		TagProfitScale:                 cfg.TagProfitScale,
+		TagDirection:                   cfg.TagDirection,
+		TagTradingRhythm:               cfg.TagTradingRhythm,
+		TagProfitStatus:                cfg.TagProfitStatus,
+		TagTradingStyles:               cfg.TagTradingStyles,
+		TraderMetricPeriod:             cfg.TraderMetricPeriod,
+		FollowMarginMode:               cfg.FollowMarginMode,
+		FollowSymbol:                   cfg.FollowSymbol,
+		Leverage:                       cfg.Leverage,
+		MarginMode:                     cfg.MarginMode,
+		FollowModel:                    cfg.FollowModel,
+		FollowModelValue:               cfg.FollowModelValue,
+		MinValue:                       cfg.MinValue,
+		MaxValue:                       cfg.MaxValue,
+		MaxMarginUsage:                 cfg.MaxMarginUsage,
+		TpValue:                        cfg.TpValue,
+		SlValue:                        cfg.SlValue,
+		OptFollowupDecrease:            cfg.OptFollowupDecrease,
+		OptFollowupIncrease:            cfg.OptFollowupIncrease,
+		OptForcedLiquidationProtection: cfg.OptForcedLiquidationProtection,
+		OptPositionIncreaseOpening:     cfg.OptPositionIncreaseOpening,
+		OptSlippageProtection:          cfg.OptSlippageProtection,
+		SymbolListType:                 cfg.SymbolListType,
+		SymbolList:                     cfg.SymbolList,
+		MainWallet:                     cfg.MainWallet,
+		MainWalletPlatform:             cfg.MainWalletPlatform,
+		CopyTradingStatus:              cfg.Status,
+		CopyTradingCreatedAt:           cfg.CreatedAt,
+		CopyTradingUpdatedAt:           cfg.UpdatedAt,
+		TraderAddress:                  addr,
+		TraderCoin:                     fill.Coin,
+		TraderSzi:                      traderSzi,
+		TraderEntryPx:                  fill.Px,
+		TraderPositionValue:            posValue,
+		Status:                         ctStatus,
+		ErrorMsg:                       errMsg,
+	}
+
+	if err := f.db.Create(&cp).Error; err != nil {
+		zap.S().Errorf("[follower] create copy_trading: %v", err)
+	}
+
+	f.saveRecord(cfg, fill, execStatus, errMsg)
 }
 
 func (f *Follower) saveRecord(cfg model.CopyTradingConfig, fill *model.Fill, execStatus int, errMsg string) {
@@ -461,3 +655,9 @@ func (f *Follower) saveRecord(cfg model.CopyTradingConfig, fill *model.Fill, exe
 	}
 }
 
+func boolToSide(isBuy bool) string {
+	if isBuy {
+		return "BUY"
+	}
+	return "SELL"
+}
