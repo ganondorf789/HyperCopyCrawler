@@ -34,7 +34,6 @@ type CopyTrading struct {
 	MaxMarginUsage                 string         `gorm:"type:numeric(10,4);not null;default:0;comment:最大保证金使用率" json:"max_margin_usage"`
 	TpValue                        string         `gorm:"type:numeric(10,4);not null;default:0;comment:止盈比例" json:"tp_value"`
 	SlValue                        string         `gorm:"type:numeric(10,4);not null;default:0;comment:止损比例" json:"sl_value"`
-	OptReverseFollowOrder          int            `gorm:"not null;default:0;comment:反向跟单 0:关 1:开" json:"opt_reverse_follow_order"`
 	OptFollowupDecrease            int            `gorm:"not null;default:0;comment:跟随减仓 0:关 1:开" json:"opt_followup_decrease"`
 	OptFollowupIncrease            int            `gorm:"not null;default:0;comment:跟随加仓 0:关 1:开" json:"opt_followup_increase"`
 	OptForcedLiquidationProtection int            `gorm:"not null;default:0;comment:强平保护 0:关 1:开" json:"opt_forced_liquidation_protection"`
